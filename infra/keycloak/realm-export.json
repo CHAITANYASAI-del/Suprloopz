@@ -1,0 +1,86 @@
+{
+  "realm": "superloopz",
+  "enabled": true,
+  "displayName": "SuperLoopz",
+  "loginWithEmailAllowed": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "sslRequired": "external",
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(12) and digits(1) and specialChars(1) and notUsername()",
+  "roles": {
+    "realm": [
+      { "name": "vendor",  "description": "Vendor user — completes onboarding and manages their own data" },
+      { "name": "admin",   "description": "SuperLoopz administrator — invites vendors, manages everything" },
+      { "name": "support", "description": "Technical support — read-only access to all vendor data" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "superloopz-backend",
+      "name": "SuperLoopz Backend (confidential)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "superloopz-backend-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
+    },
+    {
+      "clientId": "superloopz-web",
+      "name": "SuperLoopz Web (public, PKCE)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3001/*",
+        "http://localhost:3002/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3001",
+        "http://localhost:3002"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "900"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles-to-token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "smtpServer": {},
+  "internationalizationEnabled": false,
+  "eventsEnabled": true,
+  "eventsExpiration": 0,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true
+}
