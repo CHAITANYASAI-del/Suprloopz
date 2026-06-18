@@ -49,11 +49,11 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": [
         "http://localhost:3001/*",
-        "http://localhost:3002/*"
+        "https://superloopzvendor.vercel.app/*"
       ],
       "webOrigins": [
         "http://localhost:3001",
-        "http://localhost:3002"
+        "https://superloopzvendor.vercel.app"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
