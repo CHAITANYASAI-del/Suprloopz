@@ -112,7 +112,7 @@ export default function VendorDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.push('/admin/vendors')} className="-ml-2">
+      <Button variant="ghost" size="sm" onClick={() => router.push('/vendoradmin/vendors')} className="-ml-2">
         <ArrowLeft className="h-4 w-4" /> Back to vendors
       </Button>
 

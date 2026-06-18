@@ -155,41 +155,21 @@ services:
     networks:
       - superloopz
 
-  # Vendor / consumer portal — public-facing.
+  # Single Next.js app serving both portals by path: /vendor and /vendoradmin.
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_PORTAL: vendor
         NEXT_PUBLIC_API_URL: ${NEXTJS_PUBLIC_API_URL:-http://localhost:3000}
     container_name: superloopz-frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${NEXTJS_PUBLIC_API_URL:-http://localhost:3000}
-      NEXT_PUBLIC_PORTAL: vendor
+      # Next standalone server.js reads PORT.
+      PORT: 3001
     ports:
-      - "3001:3000"
-    depends_on:
-      - backend
-    networks:
-      - superloopz
-
-  # Staff / company admin portal — keep this behind VPN / firewall in production.
-  frontend-admin:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_PORTAL: admin
-        NEXT_PUBLIC_API_URL: ${NEXTJS_PUBLIC_API_URL:-http://localhost:3000}
-    container_name: superloopz-frontend-admin
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXTJS_PUBLIC_API_URL:-http://localhost:3000}
-      NEXT_PUBLIC_PORTAL: admin
-    ports:
-      - "3002:3000"
+      - "3001:3001"
     depends_on:
       - backend
     networks:

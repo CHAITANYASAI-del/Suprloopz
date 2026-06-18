@@ -84,7 +84,7 @@ export default function AddressPage() {
         { registered, sameAsBilling, billing: sameAsBilling ? undefined : billing, shipping },
         idempotencyKey,
       );
-      router.push('/dashboard');
+      router.push('/vendor/dashboard');
     } catch (err) {
       if (err instanceof ApiError) setFormError(err.message);
       else setFormError('Could not save your addresses.');
@@ -135,7 +135,7 @@ export default function AddressPage() {
           </section>
 
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push('/onboarding/legal')}>
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/legal')}>
               Back
             </Button>
             <Button type="submit" disabled={loading}>

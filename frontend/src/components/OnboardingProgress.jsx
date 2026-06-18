@@ -4,10 +4,10 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 export const ONBOARDING_STEPS = [
-  { key: 'profile', label: 'Profile', path: '/onboarding/profile' },
-  { key: 'company', label: 'Company', path: '/onboarding/company' },
-  { key: 'legal', label: 'Legal', path: '/onboarding/legal' },
-  { key: 'address', label: 'Address', path: '/onboarding/address' },
+  { key: 'profile', label: 'Profile', path: '/vendor/onboarding/profile' },
+  { key: 'company', label: 'Company', path: '/vendor/onboarding/company' },
+  { key: 'legal', label: 'Legal', path: '/vendor/onboarding/legal' },
+  { key: 'address', label: 'Address', path: '/vendor/onboarding/address' },
 ];
 
 // Progress bar + step markers shown across all onboarding pages.

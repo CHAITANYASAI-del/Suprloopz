@@ -77,7 +77,7 @@ export default function AdminDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Recent vendors</CardTitle>
-          <Link href="/admin/vendors">
+          <Link href="/vendoradmin/vendors">
             <Button variant="ghost" size="sm">
               View all <ArrowRight className="h-4 w-4" />
             </Button>
@@ -108,7 +108,7 @@ export default function AdminDashboard() {
                 </TableRow>
               ) : (
                 recent.map((v) => (
-                  <TableRow key={v.id} className="cursor-pointer" onClick={() => router.push(`/admin/vendors/${v.id}`)}>
+                  <TableRow key={v.id} className="cursor-pointer" onClick={() => router.push(`/vendoradmin/vendors/${v.id}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar name={vendorName(v)} email={v.email} />

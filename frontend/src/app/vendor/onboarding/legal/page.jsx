@@ -69,7 +69,7 @@ export default function LegalPage() {
           fileKey: docs[type].fileKey,
         })),
       });
-      router.push('/onboarding/address');
+      router.push('/vendor/onboarding/address');
     } catch (err) {
       if (err instanceof ApiError) setFormError(err.message);
       else setFormError('Could not save your documents.');
@@ -127,7 +127,7 @@ export default function LegalPage() {
           ))}
 
           <div className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push('/onboarding/company')}>
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>
               Back
             </Button>
             <Button type="submit" disabled={loading}>

@@ -8,16 +8,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Which portal this image serves: 'vendor' (default) or 'admin'. NEXT_PUBLIC_*
-# vars are inlined at build time, so it must be set before `next build`.
-ARG NEXT_PUBLIC_PORTAL=vendor
+# NEXT_PUBLIC_* vars are inlined at build time, so the API URL must be set
+# before `next build`. Both portals (/vendor and /vendoradmin) ship in one image.
 ARG NEXT_PUBLIC_API_URL=http://localhost:3000
-ARG NEXT_PUBLIC_VENDOR_URL=http://localhost:3001
-ARG NEXT_PUBLIC_ADMIN_URL=http://localhost:3002
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_PORTAL=$NEXT_PUBLIC_PORTAL
-ENV NEXT_PUBLIC_VENDOR_URL=$NEXT_PUBLIC_VENDOR_URL
-ENV NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -28,5 +22,5 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-EXPOSE 3000
+EXPOSE 3001
 CMD ["node", "server.js"]

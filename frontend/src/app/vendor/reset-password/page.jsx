@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
       });
       sessionStorage.removeItem('superloopz.reset');
       if (res.tokens) setTokens(res.tokens);
-      router.push('/onboarding/profile');
+      router.push('/vendor/onboarding/profile');
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors) setErrors(err.fieldErrors);
       setFormError(err.message || 'Could not update your password.');
@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription>
                   Session expired.{' '}
-                  <a href="/login" className="font-medium underline">
+                  <a href="/vendor/login" className="font-medium underline">
                     Return to sign in
                   </a>
                   .

@@ -47,7 +47,10 @@ export function AuthProvider({ children }) {
     const t = getTokens();
     if (t?.refreshToken) await api.logout(t.refreshToken).catch(() => {});
     applyTokens(null);
-    router.push('/login');
+    // Return to the login of whichever portal the user is currently in.
+    const onAdmin =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/vendoradmin');
+    router.push(onAdmin ? '/vendoradmin/login' : '/vendor/login');
   };
 
   const value = useMemo(

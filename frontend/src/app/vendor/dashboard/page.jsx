@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, Clock, FileText } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { isAdminPortal } from '@/lib/portal';
+import { routes } from '@/lib/routes';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +18,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!ready) return;
-    if (isAdminPortal) return router.replace('/admin');
-    if (!isAuthenticated) router.replace('/login');
+    if (!isAuthenticated) router.replace(routes.vendorLogin);
   }, [ready, isAuthenticated, router]);
 
   useEffect(() => {

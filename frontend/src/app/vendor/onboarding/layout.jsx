@@ -4,22 +4,20 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { AppHeader } from '@/components/AppHeader';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { isAdminPortal } from '@/lib/portal';
+import { routes } from '@/lib/routes';
 
 export default function OnboardingLayout({ children }) {
   const { ready, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const current = pathname.split('/')[2]; // /onboarding/<step>
+  const current = pathname.split('/')[3]; // /vendor/onboarding/<step>
 
   useEffect(() => {
     if (!ready) return;
-    // Onboarding is a vendor flow — not served on the staff portal.
-    if (isAdminPortal) return router.replace('/admin');
-    if (!isAuthenticated) router.replace('/login');
+    if (!isAuthenticated) router.replace(routes.vendorLogin);
   }, [ready, isAuthenticated, router]);
 
-  if (isAdminPortal || !ready || !isAuthenticated) {
+  if (!ready || !isAuthenticated) {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>;
   }
 

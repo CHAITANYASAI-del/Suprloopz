@@ -66,7 +66,7 @@ export default function CompanyPage() {
     setLoading(true);
     try {
       await api.saveCompany(form);
-      router.push('/onboarding/legal');
+      router.push('/vendor/onboarding/legal');
     } catch (err) {
       if (err instanceof ApiError) setErrors(err.fieldErrors);
       setFormError(err.message || 'Could not save company information.');
@@ -126,7 +126,7 @@ export default function CompanyPage() {
           </Field>
 
           <div className="flex justify-between pt-2">
-            <Button type="button" variant="outline" onClick={() => router.push('/onboarding/profile')}>
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/profile')}>
               Back
             </Button>
             <Button type="submit" disabled={loading}>

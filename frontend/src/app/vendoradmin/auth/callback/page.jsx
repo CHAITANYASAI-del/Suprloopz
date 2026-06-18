@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { completeSsoLogin } from '@/lib/oidc';
@@ -22,7 +22,7 @@ function roleFromToken(accessToken) {
 
 // OIDC redirect target for the staff portal. Exchanges the auth code for tokens
 // and routes the user into the admin panel (rejecting non-staff).
-export default function AuthCallbackPage() {
+function AuthCallbackInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { setTokens } = useAuth();
@@ -56,7 +56,7 @@ export default function AuthCallbackPage() {
           return;
         }
         setTokens(tokens);
-        router.replace('/admin');
+        router.replace('/vendoradmin');
       } catch (err) {
         setError(err.message || 'Sign-in failed.');
       }
@@ -77,7 +77,7 @@ export default function AuthCallbackPage() {
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
-              <Button onClick={() => router.replace('/login')}>Back to sign-in</Button>
+              <Button onClick={() => router.replace('/vendoradmin/login')}>Back to sign-in</Button>
             </CardContent>
           </Card>
         ) : (
@@ -88,5 +88,20 @@ export default function AuthCallbackPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary for static export.
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+          Completing sign-in…
+        </div>
+      }
+    >
+      <AuthCallbackInner />
+    </Suspense>
   );
 }

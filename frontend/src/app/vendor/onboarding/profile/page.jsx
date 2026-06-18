@@ -44,7 +44,7 @@ export default function ProfilePage() {
         lastName: form.lastName.trim(),
         phone: `${form.countryCode} ${form.phone.trim()}`,
       });
-      router.push('/onboarding/company');
+      router.push('/vendor/onboarding/company');
     } catch (err) {
       if (err instanceof ApiError) setErrors(err.fieldErrors);
       setFormError(err.message || 'Could not save your profile.');
