@@ -1,0 +1,79 @@
+name: Provision Oracle Free ARM (auto-retry)
+
+# Beats Oracle's "Out of host capacity" by retrying from GitHub's cloud every
+# ~10 minutes, 24/7 and free — no laptop or terminal needed. It launches a free
+# VM.Standard.A1.Flex (1 OCPU / 6 GB) named "superloopz" the moment capacity
+# opens, then prints the public IP in the run summary. Once it succeeds, the
+# job sees the existing instance and stops launching — disable the workflow.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # every 10 minutes (GitHub may delay under load)
+  workflow_dispatch: {}      # also run on-demand from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oci-provision
+  cancel-in-progress: false
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    env:
+      OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+      OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+      OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+      COMPARTMENT: ${{ secrets.OCI_COMPARTMENT_ID }}
+    steps:
+      - name: Install OCI CLI
+        run: pip install --quiet oci-cli
+
+      - name: Do we already have an instance?
+        id: check
+        run: |
+          STATES=$(oci compute instance list --compartment-id "$COMPARTMENT" \
+                     --display-name superloopz --all 2>/dev/null \
+                   | jq -r '.data[]?."lifecycle-state"' 2>/dev/null || true)
+          if echo "$STATES" | grep -qE 'RUNNING|PROVISIONING|STARTING'; then
+            echo "exists=1" >> "$GITHUB_OUTPUT"
+            echo "An instance already exists ($STATES) — skipping launch."
+          else
+            echo "exists=0" >> "$GITHUB_OUTPUT"
+            echo "No live instance yet — will attempt launch."
+          fi
+
+      - name: Attempt launch (free A1 — 1 OCPU / 6 GB)
+        if: steps.check.outputs.exists == '0'
+        run: |
+          printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > /tmp/id.pub
+          if oci compute instance launch \
+               --availability-domain "${{ secrets.AD_NAME }}" \
+               --compartment-id "$COMPARTMENT" \
+               --shape VM.Standard.A1.Flex \
+               --shape-config '{"ocpus":1,"memoryInGBs":6}' \
+               --image-id "${{ secrets.IMAGE_ID }}" \
+               --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
+               --assign-public-ip true \
+               --display-name superloopz \
+               --ssh-authorized-keys-file /tmp/id.pub > launch.json 2> err.txt; then
+            ID=$(jq -r '.data.id' launch.json)
+            echo "LAUNCH SUCCEEDED: $ID"
+            sleep 45
+            IP=$(oci compute instance list-vnics --instance-id "$ID" \
+                   --query 'data[0]."public-ip"' --raw-output 2>/dev/null || echo "pending")
+            {
+              echo "## 🎉 Oracle instance created!"
+              echo ""
+              echo "**Public IP:** \`$IP\`"
+              echo ""
+              echo "Now disable this workflow (Actions → this workflow → ⋯ → Disable) and send the IP to continue setup."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "PUBLIC IP: $IP"
+          else
+            echo "No capacity yet (or transient error) — will retry on the next run."
+            grep -iE 'capacity|TooManyRequests|message' err.txt || cat err.txt || true
+          fi
