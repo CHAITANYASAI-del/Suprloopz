@@ -46,34 +46,56 @@ jobs:
             echo "No live instance yet — will attempt launch."
           fi
 
-      - name: Attempt launch (free A1 — 1 OCPU / 6 GB)
+      - name: Attempt launch (A1/ARM first, then AMD micro fallback)
         if: steps.check.outputs.exists == '0'
+        env:
+          AD: ${{ secrets.AD_NAME }}
+          SUBNET: ${{ secrets.OCI_SUBNET_ID }}
         run: |
           printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > /tmp/id.pub
+          OK=0
+
+          echo "→ Trying ARM A1.Flex (1 OCPU / 6 GB)…"
           if oci compute instance launch \
-               --availability-domain "${{ secrets.AD_NAME }}" \
-               --compartment-id "$COMPARTMENT" \
-               --shape VM.Standard.A1.Flex \
-               --shape-config '{"ocpus":1,"memoryInGBs":6}' \
-               --image-id "${{ secrets.IMAGE_ID }}" \
-               --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
-               --assign-public-ip true \
-               --display-name superloopz \
+               --availability-domain "$AD" --compartment-id "$COMPARTMENT" \
+               --shape VM.Standard.A1.Flex --shape-config '{"ocpus":1,"memoryInGBs":6}' \
+               --image-id "${{ secrets.IMAGE_ID }}" --subnet-id "$SUBNET" \
+               --assign-public-ip true --display-name superloopz \
                --ssh-authorized-keys-file /tmp/id.pub > launch.json 2> err.txt; then
+            OK=1; echo "ARM launch OK"
+          else
+            echo "ARM no capacity — falling back to AMD E2.1.Micro (1 GB)…"
+            AMD_IMG=$(oci compute image list --compartment-id "$COMPARTMENT" \
+                        --operating-system "Canonical Ubuntu" --operating-system-version "22.04" \
+                        --shape "VM.Standard.E2.1.Micro" --sort-by TIMECREATED --sort-order DESC \
+                        --query 'data[0].id' --raw-output)
+            if oci compute instance launch \
+                 --availability-domain "$AD" --compartment-id "$COMPARTMENT" \
+                 --shape VM.Standard.E2.1.Micro \
+                 --image-id "$AMD_IMG" --subnet-id "$SUBNET" \
+                 --assign-public-ip true --display-name superloopz \
+                 --ssh-authorized-keys-file /tmp/id.pub > launch.json 2>> err.txt; then
+              OK=1; echo "AMD launch OK"
+            fi
+          fi
+
+          if [ "$OK" = "1" ]; then
             ID=$(jq -r '.data.id' launch.json)
-            echo "LAUNCH SUCCEEDED: $ID"
+            SHAPE=$(jq -r '.data.shape' launch.json)
+            echo "LAUNCH SUCCEEDED: $ID ($SHAPE)"
             sleep 45
             IP=$(oci compute instance list-vnics --instance-id "$ID" \
                    --query 'data[0]."public-ip"' --raw-output 2>/dev/null || echo "pending")
             {
               echo "## 🎉 Oracle instance created!"
               echo ""
+              echo "**Shape:** \`$SHAPE\`"
               echo "**Public IP:** \`$IP\`"
               echo ""
-              echo "Now disable this workflow (Actions → this workflow → ⋯ → Disable) and send the IP to continue setup."
+              echo "Disable this workflow (⋯ → Disable) and send the IP to continue."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "PUBLIC IP: $IP"
           else
-            echo "No capacity yet (or transient error) — will retry on the next run."
+            echo "No capacity on ARM or AMD this round — will retry next run."
             grep -iE 'capacity|TooManyRequests|message' err.txt || cat err.txt || true
           fi
