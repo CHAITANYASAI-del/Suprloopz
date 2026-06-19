@@ -1,15 +1,16 @@
 name: Provision Oracle Free ARM (auto-retry)
 
-# Beats Oracle's "Out of host capacity" by retrying from GitHub's cloud every
-# ~10 minutes, 24/7 and free — no laptop or terminal needed. It launches a free
-# VM.Standard.A1.Flex (1 OCPU / 6 GB) named "superloopz" the moment capacity
-# opens, then prints the public IP in the run summary. Once it succeeds, the
-# job sees the existing instance and stops launching — disable the workflow.
+# Hunts the free ARM A1.Flex box (the real production target). We already have
+# an AMD micro as a fallback, so this:
+#   * tries ARM ONLY (no AMD fallback here),
+#   * is NOT blocked by the existing AMD instance (it only skips if an *ARM*
+#     instance already exists).
+# When ARM lands, it prints the public IP — then we migrate off AMD onto it.
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # every 10 minutes (GitHub may delay under load)
-  workflow_dispatch: {}      # also run on-demand from the Actions tab
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -32,70 +33,47 @@ jobs:
       - name: Install OCI CLI
         run: pip install --quiet oci-cli
 
-      - name: Do we already have an instance?
+      - name: Do we already have an ARM instance?
         id: check
         run: |
           STATES=$(oci compute instance list --compartment-id "$COMPARTMENT" \
                      --display-name superloopz --all 2>/dev/null \
-                   | jq -r '.data[]?."lifecycle-state"' 2>/dev/null || true)
+                   | jq -r '.data[]? | select(.shape=="VM.Standard.A1.Flex") | ."lifecycle-state"' 2>/dev/null || true)
           if echo "$STATES" | grep -qE 'RUNNING|PROVISIONING|STARTING'; then
             echo "exists=1" >> "$GITHUB_OUTPUT"
-            echo "An instance already exists ($STATES) — skipping launch."
+            echo "ARM instance already exists — nothing to do."
           else
             echo "exists=0" >> "$GITHUB_OUTPUT"
-            echo "No live instance yet — will attempt launch."
+            echo "No ARM instance yet — will try ARM (AMD fallback box is untouched)."
           fi
 
-      - name: Attempt launch (A1/ARM first, then AMD micro fallback)
+      - name: Attempt ARM launch (1 OCPU / 6 GB — the upgrade box)
         if: steps.check.outputs.exists == '0'
         env:
           AD: ${{ secrets.AD_NAME }}
           SUBNET: ${{ secrets.OCI_SUBNET_ID }}
         run: |
           printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > /tmp/id.pub
-          OK=0
-
-          echo "→ Trying ARM A1.Flex (1 OCPU / 6 GB)…"
           if oci compute instance launch \
                --availability-domain "$AD" --compartment-id "$COMPARTMENT" \
                --shape VM.Standard.A1.Flex --shape-config '{"ocpus":1,"memoryInGBs":6}' \
                --image-id "${{ secrets.IMAGE_ID }}" --subnet-id "$SUBNET" \
                --assign-public-ip true --display-name superloopz \
                --ssh-authorized-keys-file /tmp/id.pub > launch.json 2> err.txt; then
-            OK=1; echo "ARM launch OK"
-          else
-            echo "ARM no capacity — falling back to AMD E2.1.Micro (1 GB)…"
-            AMD_IMG=$(oci compute image list --compartment-id "$COMPARTMENT" \
-                        --operating-system "Canonical Ubuntu" --operating-system-version "22.04" \
-                        --shape "VM.Standard.E2.1.Micro" --sort-by TIMECREATED --sort-order DESC \
-                        --query 'data[0].id' --raw-output)
-            if oci compute instance launch \
-                 --availability-domain "$AD" --compartment-id "$COMPARTMENT" \
-                 --shape VM.Standard.E2.1.Micro \
-                 --image-id "$AMD_IMG" --subnet-id "$SUBNET" \
-                 --assign-public-ip true --display-name superloopz \
-                 --ssh-authorized-keys-file /tmp/id.pub > launch.json 2>> err.txt; then
-              OK=1; echo "AMD launch OK"
-            fi
-          fi
-
-          if [ "$OK" = "1" ]; then
             ID=$(jq -r '.data.id' launch.json)
-            SHAPE=$(jq -r '.data.shape' launch.json)
-            echo "LAUNCH SUCCEEDED: $ID ($SHAPE)"
+            echo "ARM LAUNCH SUCCEEDED: $ID"
             sleep 45
             IP=$(oci compute instance list-vnics --instance-id "$ID" \
                    --query 'data[0]."public-ip"' --raw-output 2>/dev/null || echo "pending")
             {
-              echo "## 🎉 Oracle instance created!"
+              echo "## 🎉 Free ARM box created!"
               echo ""
-              echo "**Shape:** \`$SHAPE\`"
-              echo "**Public IP:** \`$IP\`"
+              echo "**Public IP:** \`$IP\`  (shape VM.Standard.A1.Flex, 6 GB)"
               echo ""
-              echo "Disable this workflow (⋯ → Disable) and send the IP to continue."
+              echo "Migrate the stack here, then terminate the AMD micro."
             } >> "$GITHUB_STEP_SUMMARY"
             echo "PUBLIC IP: $IP"
           else
-            echo "No capacity on ARM or AMD this round — will retry next run."
+            echo "ARM still out of capacity — will retry next run."
             grep -iE 'capacity|TooManyRequests|message' err.txt || cat err.txt || true
           fi
