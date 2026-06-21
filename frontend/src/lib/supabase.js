@@ -15,8 +15,9 @@ export const supabase = createClient(url, key, {
   },
 });
 
-// Role lives in the JWT's app_metadata (set when the admin invites the user).
+// Invited users are tagged role='vendor'. Any other signed-in account (created
+// in the Supabase dashboard by the team) is staff/admin.
 export function roleOf(user) {
-  const r = user?.app_metadata?.role;
-  return r === 'admin' || r === 'support' ? r : 'vendor';
+  if (!user) return null;
+  return user.app_metadata?.role === 'vendor' ? 'vendor' : 'admin';
 }

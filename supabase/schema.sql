@@ -16,16 +16,23 @@ do $$ begin create type doc_type as enum ('GST','PAN','CIN'); exception when dup
 do $$ begin create type address_type as enum ('registered','billing','shipping'); exception when duplicate_object then null; end $$;
 
 -- ---- role helpers (read role from the JWT, not a table → no recursion) ------
+-- Model: invited users are tagged role='vendor'. ANY OTHER authenticated user
+-- (i.e. accounts created in the Supabase dashboard by the SuperLoopz team) is
+-- treated as staff/admin. Anonymous requests are never staff.
 create or replace function public.jwt_role() returns text
 language sql stable as $$
-  select coalesce(
-    nullif(current_setting('request.jwt.claims', true)::jsonb #>> '{app_metadata,role}', ''),
-    'vendor'
-  )
+  select case
+    when auth.uid() is null then 'anon'
+    when coalesce(current_setting('request.jwt.claims', true)::jsonb #>> '{app_metadata,role}','') = 'vendor' then 'vendor'
+    else 'admin'
+  end
 $$;
 
 create or replace function public.is_staff() returns boolean
-language sql stable as $$ select public.jwt_role() in ('admin','support') $$;
+language sql stable as $$
+  select auth.uid() is not null
+     and coalesce(current_setting('request.jwt.claims', true)::jsonb #>> '{app_metadata,role}','') <> 'vendor'
+$$;
 
 -- ---- profiles (mirror of auth user + role) ---------------------------------
 create table if not exists public.profiles (
@@ -35,15 +42,21 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 
--- Auto-create a profile row whenever a new auth user is created.
+-- Auto-create a profile when a new auth user is created. Invited users carry
+-- role='vendor' (in app/user metadata); dashboard-created users default to admin.
+-- Only vendors get onboarding rows.
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare
+  v_role text := coalesce(new.raw_app_meta_data ->> 'role', new.raw_user_meta_data ->> 'role', 'admin');
 begin
   insert into public.profiles (id, email, role)
-  values (new.id, new.email, coalesce(new.raw_app_meta_data ->> 'role', 'vendor'))
+  values (new.id, new.email, v_role)
   on conflict (id) do update set email = excluded.email;
-  insert into public.onboarding_status (user_id) values (new.id) on conflict (user_id) do nothing;
-  insert into public.vendor_profiles (user_id) values (new.id) on conflict (user_id) do nothing;
+  if v_role = 'vendor' then
+    insert into public.onboarding_status (user_id) values (new.id) on conflict (user_id) do nothing;
+    insert into public.vendor_profiles (user_id) values (new.id) on conflict (user_id) do nothing;
+  end if;
   return new;
 end $$;
 
