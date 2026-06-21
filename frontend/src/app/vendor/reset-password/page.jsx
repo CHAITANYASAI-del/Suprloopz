@@ -31,10 +31,18 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     // The invite link puts a session in the URL; give Supabase a moment to parse it.
-    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setHasSession(!!s));
+    const handle = (session) => {
+      // A staff member who landed here gets sent to the staff set-password page.
+      if (session && roleOf(session.user) !== 'vendor') {
+        router.replace(routes.adminSetPassword);
+        return;
+      }
+      setHasSession(!!session);
+    };
+    supabase.auth.getSession().then(({ data }) => handle(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => handle(s));
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [router]);
 
   const allValid = rules.every((r) => r.test(newPassword));
 
