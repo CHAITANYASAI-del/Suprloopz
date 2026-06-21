@@ -35,18 +35,20 @@ export async function POST(req) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return Response.json({ error: 'A valid email is required' }, { status: 400 });
   }
+  // role: 'vendor' (default) or 'admin' (staff member)
+  const role = body?.role === 'admin' ? 'admin' : 'vendor';
 
-  // ---- invite + set vendor role ----
+  // ---- invite ----
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${siteUrl}/vendor/reset-password`,
-    data: { role: 'vendor' },
+    data: { role },
   });
   if (error) {
     const status = /already/i.test(error.message) ? 409 : 400;
     return Response.json({ error: error.message }, { status });
   }
-  // Put the role in app_metadata so RLS (jwt_role / is_staff) sees it.
-  await admin.auth.admin.updateUserById(data.user.id, { app_metadata: { role: 'vendor' } });
+  // Tag the role in app_metadata so RLS (jwt_role / is_staff) sees it.
+  await admin.auth.admin.updateUserById(data.user.id, { app_metadata: { role } });
 
-  return Response.json({ ok: true, email }, { status: 201 });
+  return Response.json({ ok: true, email, role }, { status: 201 });
 }

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Check, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, roleOf } from '@/lib/supabase';
 import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
 import { Field } from '@/components/Field';
@@ -46,13 +46,15 @@ export default function SetPasswordPage() {
     if (newPassword !== confirmPassword) return setErrors({ confirmPassword: 'Passwords do not match' });
 
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
     if (error) {
       setFormError(error.message || 'Could not set your password.');
       return;
     }
-    router.push(routes.onboarding('profile'));
+    // Staff → admin dashboard; vendors → onboarding.
+    const role = roleOf(data.user);
+    router.push(role === 'vendor' ? routes.onboarding('profile') : routes.adminHome);
   };
 
   return (

@@ -100,11 +100,11 @@ export const db = {
   },
 
   // ---------------- Admin (staff, RLS sees all) ----------------
-  async inviteVendor(email) {
+  async invite(email, role = 'vendor') {
     const res = await fetch('/api/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, role }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(json.error || 'Invite failed'), { status: res.status });

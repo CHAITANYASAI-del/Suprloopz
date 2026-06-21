@@ -10,9 +10,12 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 
-// Reusable "Invite vendor" button + modal. Calls onInvited() after success so
-// the caller can refresh its data.
-export function InviteVendorDialog({ onInvited, triggerClassName }) {
+// Reusable invite button + modal for either a vendor (default) or a staff/admin.
+// Calls onInvited() after success so the caller can refresh its data.
+export function InviteVendorDialog({ onInvited, triggerClassName, role = 'vendor' }) {
+  const isStaff = role === 'admin';
+  const noun = isStaff ? 'staff member' : 'vendor';
+  const triggerLabel = isStaff ? 'Invite staff' : 'Invite vendor';
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -33,8 +36,12 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError('Enter a valid email address');
     setLoading(true);
     try {
-      await db.inviteVendor(email.trim());
-      setOk(`Invitation sent to ${email.trim()}. They'll get an email to set their password and start onboarding.`);
+      await db.invite(email.trim(), role);
+      setOk(
+        isStaff
+          ? `Invite sent to ${email.trim()}. They'll get an email to set their password, then they can sign in to the staff panel.`
+          : `Invitation sent to ${email.trim()}. They'll get an email to set their password and start onboarding.`,
+      );
       setEmail('');
       onInvited?.();
     } catch (err) {
@@ -54,15 +61,15 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
       }}
     >
       <DialogTrigger asChild>
-        <Button className={triggerClassName}>
-          <UserPlus className="h-4 w-4" /> Invite vendor
+        <Button className={triggerClassName} variant={isStaff ? 'outline' : 'default'}>
+          <UserPlus className="h-4 w-4" /> {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite a vendor</DialogTitle>
+          <DialogTitle>Invite a {noun}</DialogTitle>
           <DialogDescription>
-            We&apos;ll create their account and email a temporary password with a login link.
+            We&apos;ll create their account and email a secure link to set their password.
           </DialogDescription>
         </DialogHeader>
 
@@ -79,12 +86,12 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              <Field label="Vendor email" htmlFor="invite-email" error={error} required>
+              <Field label={`${isStaff ? 'Staff' : 'Vendor'} email`} htmlFor="invite-email" error={error} required>
                 <Input
                   id="invite-email"
                   type="email"
                   autoFocus
-                  placeholder="vendor@company.com"
+                  placeholder={isStaff ? 'teammate@superloopz.com' : 'vendor@company.com'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   aria-invalid={!!error}
