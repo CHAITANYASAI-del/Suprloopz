@@ -21,7 +21,10 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublic = pathname === routes.adminLogin || pathname.startsWith(routes.adminCallback);
+  const isPublic =
+    pathname === routes.adminLogin ||
+    pathname === routes.adminSetPassword ||
+    pathname.startsWith(routes.adminCallback);
 
   useEffect(() => {
     if (isPublic || !ready) return;

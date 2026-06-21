@@ -15,6 +15,7 @@ export const routes = {
 
   // admin portal
   adminLogin: `${ADMIN_PREFIX}/login`,
+  adminSetPassword: `${ADMIN_PREFIX}/set-password`,
   adminHome: ADMIN_PREFIX,
   adminVendors: `${ADMIN_PREFIX}/vendors`,
   adminVendor: (id) => `${ADMIN_PREFIX}/vendors/${id}`,
