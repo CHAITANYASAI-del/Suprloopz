@@ -20,8 +20,9 @@ export async function POST(req) {
   if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: who, error: whoErr } = await admin.auth.getUser(token);
   if (whoErr || !who?.user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  if (who.user.app_metadata?.role !== 'admin') {
-    return Response.json({ error: 'Admin only' }, { status: 403 });
+  // Staff = any signed-in account that isn't tagged as a vendor.
+  if (who.user.app_metadata?.role === 'vendor') {
+    return Response.json({ error: 'Staff only' }, { status: 403 });
   }
 
   // ---- validate input ----
