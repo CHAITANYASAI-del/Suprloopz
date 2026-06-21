@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Loader2, UserPlus, MailCheck } from 'lucide-react';
-import { db } from '@/lib/db';
+import { adminApi } from '@/lib/adminApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/Field';
@@ -36,7 +36,7 @@ export function InviteVendorDialog({ onInvited, triggerClassName, role = 'vendor
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError('Enter a valid email address');
     setLoading(true);
     try {
-      await db.invite(email.trim(), role);
+      await adminApi.invite(email.trim());
       setOk(
         isStaff
           ? `Invite sent to ${email.trim()}. They'll get an email to set their password, then they can sign in to the staff panel.`

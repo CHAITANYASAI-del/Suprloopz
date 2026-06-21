@@ -1,50 +1,55 @@
 'use client';
-// Auth context backed by Supabase. Tracks the session and exposes the current
-// user (id, email, role) plus a signOut helper.
+// Portal-aware auth. The admin portal (/vendoradmin) authenticates against the
+// STAFF Supabase project; everything else uses the VENDOR project. The two
+// sessions are fully independent, so the same email can be a staff member and a
+// vendor at the same time.
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase, roleOf } from './supabase';
+import { usePathname, useRouter } from 'next/navigation';
+import { supabase } from './supabase';
+import { supabaseStaff } from './supabaseStaff';
 
 const AuthContext = createContext(null);
 
-function deriveUser(session) {
-  const u = session?.user;
-  if (!u) return null;
-  return { id: u.id, email: u.email, role: roleOf(u) };
-}
-
 export function AuthProvider({ children }) {
+  const pathname = usePathname() || '';
+  const isAdmin = pathname.startsWith('/vendoradmin');
+  const client = isAdmin ? supabaseStaff : supabase;
+
   const [session, setSession] = useState(null);
   const [ready, setReady] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    let active = true;
+    setReady(false);
+    client.auth.getSession().then(({ data }) => {
+      if (!active) return;
       setSession(data.session);
       setReady(true);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    const { data: sub } = client.auth.onAuthStateChange((_e, s) => active && setSession(s));
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [client]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await client.auth.signOut();
     setSession(null);
-    const onAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/vendoradmin');
-    router.push(onAdmin ? '/vendoradmin/login' : '/vendor/login');
+    router.push(isAdmin ? '/vendoradmin/login' : '/vendor/login');
   };
 
+  const user = useMemo(() => {
+    const u = session?.user;
+    if (!u) return null;
+    // Role is implied by which system you're in.
+    return { id: u.id, email: u.email, role: isAdmin ? 'admin' : 'vendor' };
+  }, [session, isAdmin]);
+
   const value = useMemo(
-    () => ({
-      ready,
-      session,
-      user: deriveUser(session),
-      isAuthenticated: !!session,
-      signOut,
-      // kept for older call sites; Supabase manages tokens itself.
-      logout: signOut,
-    }),
-    [session, ready],
+    () => ({ ready, session, user, isAuthenticated: !!session, signOut, logout: signOut }),
+    [ready, session, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

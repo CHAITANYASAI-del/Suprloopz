@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Search } from 'lucide-react';
-import { db } from '@/lib/db';
+import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ export default function VendorsPage() {
       setLoading(true);
       setListError('');
       try {
-        let rows = await db.listVendors();
+        let rows = await adminApi.listVendors();
         if (status !== 'all') rows = rows.filter((v) => (v.status || 'pending') === status);
         if (search) {
           const q = search.toLowerCase();

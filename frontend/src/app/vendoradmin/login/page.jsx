@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { supabase, roleOf } from '@/lib/supabase';
+import { supabaseStaff } from '@/lib/supabaseStaff';
 import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
 import { Field } from '@/components/Field';
@@ -25,19 +25,14 @@ export default function AdminLoginPage() {
     if (!email || !password) return setError('Email and password are required');
 
     setLoading(true);
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: err } = await supabaseStaff.auth.signInWithPassword({ email, password });
     setLoading(false);
 
     if (err) {
       setError(err.message || 'Invalid email or password');
       return;
     }
-    const role = roleOf(data.user);
-    if (role !== 'admin' && role !== 'support') {
-      await supabase.auth.signOut();
-      setError(`This portal is for SuperLoopz staff. Vendors sign in at ${routes.vendorLogin}.`);
-      return;
-    }
+    // Every account in the staff project is staff — no role check needed.
     router.push(routes.adminHome);
   };
 

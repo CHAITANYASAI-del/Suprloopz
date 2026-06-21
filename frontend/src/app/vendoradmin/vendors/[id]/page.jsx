@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
-import { db } from '@/lib/db';
+import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,7 @@ export default function VendorDetailPage() {
 
   const load = () => {
     setLoading(true);
-    db
+    adminApi
       .getVendor(id)
       .then(setData)
       .catch((err) => setError(err.message || 'Could not load vendor'))
@@ -48,7 +48,7 @@ export default function VendorDetailPage() {
   const changeStatus = async (status) => {
     setBusy('status');
     try {
-      await db.setVendorStatus(id, status);
+      await adminApi.setVendorStatus(id, status);
       load();
     } catch (err) {
       setError(err.message);
@@ -59,7 +59,7 @@ export default function VendorDetailPage() {
 
   const viewDoc = async (filePath) => {
     try {
-      const url = await db.signedDocUrl(filePath);
+      const url = await adminApi.signedDocUrl(filePath);
       window.open(url, '_blank', 'noopener');
     } catch (err) {
       setError(err.message || 'Could not open document');
@@ -69,7 +69,7 @@ export default function VendorDetailPage() {
   const verify = async (docId) => {
     setBusy(docId);
     try {
-      await db.verifyDoc(docId);
+      await adminApi.verifyDoc(docId);
       load();
     } catch (err) {
       setError(err.message);
@@ -82,7 +82,7 @@ export default function VendorDetailPage() {
     if (!rejectReason.trim()) return;
     setBusy(docId);
     try {
-      await db.rejectDoc(docId);
+      await adminApi.rejectDoc(docId);
       setRejecting(null);
       setRejectReason('');
       load();

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, CheckCircle2, Clock, Ban, ShieldCheck, FileClock, ArrowRight, Loader2 } from 'lucide-react';
-import { db } from '@/lib/db';
+import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,7 @@ export default function AdminDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, list] = await Promise.allSettled([db.stats(), db.listVendors()]);
+    const [s, list] = await Promise.allSettled([adminApi.stats(), adminApi.listVendors()]);
     if (s.status === 'fulfilled') setStats(s.value);
     if (list.status === 'fulfilled') setRecent(list.value.slice(0, 8));
     setLoading(false);

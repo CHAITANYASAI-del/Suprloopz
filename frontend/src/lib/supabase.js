@@ -1,6 +1,7 @@
 'use client';
-// Browser Supabase client (publishable/anon key). All vendor-facing data access
-// goes through this with Row Level Security enforcing per-vendor isolation.
+// VENDOR Supabase client (project A). Vendors authenticate here and read/write
+// their own rows via RLS. Each Supabase project uses its own storage key
+// (sb-<ref>-auth-token), so the vendor and staff sessions never collide.
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,16 +11,12 @@ export const supabase = createClient(url, key, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true, // needed for invite / password-recovery links
-    // Implicit flow so server-generated email links (invite/recovery) work —
-    // PKCE would fail since the browser never initiated the flow.
-    flowType: 'implicit',
+    detectSessionInUrl: true,
+    flowType: 'implicit', // server-generated email links (invite/recovery)
   },
 });
 
-// Invited users are tagged role='vendor'. Any other signed-in account (created
-// in the Supabase dashboard by the team) is staff/admin.
-export function roleOf(user) {
-  if (!user) return null;
-  return user.app_metadata?.role === 'vendor' ? 'vendor' : 'admin';
+// In the vendor system every signed-in user is a vendor.
+export function roleOf() {
+  return 'vendor';
 }

@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Check, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabaseStaff as supabase } from '@/lib/supabaseStaff';
 import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
 import { Field } from '@/components/Field';
