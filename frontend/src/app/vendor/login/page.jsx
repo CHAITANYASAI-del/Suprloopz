@@ -2,9 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { routes, nextOnboardingPath } from '@/lib/routes';
+import { supabase, roleOf } from '@/lib/supabase';
+import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
@@ -14,7 +13,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function VendorLoginPage() {
   const router = useRouter();
-  const { setTokens } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -29,28 +27,20 @@ export default function VendorLoginPage() {
     if (!password) return setErrors({ password: 'Password is required' });
 
     setLoading(true);
-    try {
-      const res = await api.login({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
 
-      if (res.passwordResetRequired) {
-        sessionStorage.setItem('superloopz.reset', JSON.stringify({ email, currentPassword: password }));
-        return router.push(routes.vendorReset);
-      }
-
-      const role = res.user?.role;
-      if (role === 'admin' || role === 'support') {
-        setFormError(`Staff members sign in at ${routes.adminLogin}.`);
-        return;
-      }
-
-      setTokens(res.tokens);
-      router.push(nextOnboardingPath(res.onboarding));
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) setFormError('Invalid email or password');
-      else setFormError(err.message || 'Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+    if (error) {
+      setFormError(error.message || 'Invalid email or password');
+      return;
     }
+    const role = roleOf(data.user);
+    if (role === 'admin' || role === 'support') {
+      await supabase.auth.signOut();
+      setFormError(`Staff members sign in at ${routes.adminLogin}.`);
+      return;
+    }
+    router.push(routes.vendorHome);
   };
 
   return (
@@ -110,7 +100,7 @@ export default function VendorLoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Keycloak SSO · SuperLoopz</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
       </main>
     </div>
   );

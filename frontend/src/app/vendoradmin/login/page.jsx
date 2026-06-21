@@ -1,26 +1,44 @@
 'use client';
 import { useState } from 'react';
-import { Loader2, ShieldCheck } from 'lucide-react';
-import { startSsoLogin } from '@/lib/oidc';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { supabase, roleOf } from '@/lib/supabase';
+import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
+import { Field } from '@/components/Field';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Staff / company portal — single-sign-on only, no in-app credentials form.
+// Staff / company portal — email + password (admin & support only).
 export default function AdminLoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const signIn = async () => {
+  const submit = async (e) => {
+    e.preventDefault();
     setError('');
+    if (!email || !password) return setError('Email and password are required');
+
     setLoading(true);
-    try {
-      await startSsoLogin(); // redirects to Keycloak
-    } catch (err) {
-      setError(err.message || 'Could not start SSO sign-in.');
-      setLoading(false);
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (err) {
+      setError(err.message || 'Invalid email or password');
+      return;
     }
+    const role = roleOf(data.user);
+    if (role !== 'admin' && role !== 'support') {
+      await supabase.auth.signOut();
+      setError(`This portal is for SuperLoopz staff. Vendors sign in at ${routes.vendorLogin}.`);
+      return;
+    }
+    router.push(routes.adminHome);
   };
 
   return (
@@ -30,7 +48,7 @@ export default function AdminLoginPage() {
           <div className="flex items-center gap-3">
             <Logo light />
             <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-white/80">
-              SSO
+              STAFF
             </span>
           </div>
         </div>
@@ -44,24 +62,29 @@ export default function AdminLoginPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="space-y-4">
+            <form onSubmit={submit} className="space-y-4" noValidate>
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              <Button className="w-full" onClick={signIn} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                {loading ? 'Redirecting…' : 'Sign in with SSO'}
+              <Field label="Email" htmlFor="email" required>
+                <Input id="email" type="email" autoComplete="username" placeholder="you@superloopz.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+              <Field label="Password" htmlFor="password" required>
+                <Input id="password" type="password" autoComplete="current-password" placeholder="••••••••••••"
+                  value={password} onChange={(e) => setPassword(e.target.value)} />
+              </Field>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? 'Signing in…' : 'Sign in'}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                You&apos;ll be securely redirected to Keycloak to authenticate.
-              </p>
-            </div>
+            </form>
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Keycloak SSO · SuperLoopz</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
       </main>
     </div>
   );

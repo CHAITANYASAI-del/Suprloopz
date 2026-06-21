@@ -1,68 +1,50 @@
 'use client';
-// Client-side auth context. Decodes the JWT to expose role + identity and
-// persists tokens via the api module's storage helpers.
+// Auth context backed by Supabase. Tracks the session and exposes the current
+// user (id, email, role) plus a signOut helper.
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, getTokens, setTokens } from './api';
+import { supabase, roleOf } from './supabase';
 
 const AuthContext = createContext(null);
 
-function decodeJwt(token) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-}
-
-function deriveUser(tokens) {
-  if (!tokens?.accessToken) return null;
-  const p = decodeJwt(tokens.accessToken);
-  if (!p) return null;
-  const roles = p.realm_access?.roles || [];
-  const role = roles.includes('admin')
-    ? 'admin'
-    : roles.includes('support')
-      ? 'support'
-      : 'vendor';
-  return { sub: p.sub, email: p.email || p.preferred_username, role };
+function deriveUser(session) {
+  const u = session?.user;
+  if (!u) return null;
+  return { id: u.id, email: u.email, role: roleOf(u) };
 }
 
 export function AuthProvider({ children }) {
-  const [tokens, setTokensState] = useState(null);
+  const [session, setSession] = useState(null);
   const [ready, setReady] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    setTokensState(getTokens());
-    setReady(true);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const applyTokens = (t) => {
-    setTokens(t);
-    setTokensState(t);
-  };
-
-  const logout = async () => {
-    const t = getTokens();
-    if (t?.refreshToken) await api.logout(t.refreshToken).catch(() => {});
-    applyTokens(null);
-    // Return to the login of whichever portal the user is currently in.
-    const onAdmin =
-      typeof window !== 'undefined' && window.location.pathname.startsWith('/vendoradmin');
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    const onAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/vendoradmin');
     router.push(onAdmin ? '/vendoradmin/login' : '/vendor/login');
   };
 
   const value = useMemo(
     () => ({
       ready,
-      tokens,
-      user: deriveUser(tokens),
-      isAuthenticated: !!tokens?.accessToken,
-      setTokens: applyTokens,
-      logout,
+      session,
+      user: deriveUser(session),
+      isAuthenticated: !!session,
+      signOut,
+      // kept for older call sites; Supabase manages tokens itself.
+      logout: signOut,
     }),
-    [tokens, ready],
+    [session, ready],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

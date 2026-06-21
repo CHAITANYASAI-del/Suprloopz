@@ -1,9 +1,12 @@
 'use client';
+// Landing page for the Supabase invite / password-recovery email link.
+// Supabase establishes a session from the link (detectSessionInUrl); the vendor
+// then sets their password and continues to onboarding.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Check, X } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
@@ -17,10 +20,9 @@ const rules = [
   { test: (p) => /[^A-Za-z0-9]/.test(p), label: 'Contains a special character' },
 ];
 
-export default function ResetPasswordPage() {
+export default function SetPasswordPage() {
   const router = useRouter();
-  const { setTokens } = useAuth();
-  const [creds, setCreds] = useState(null);
+  const [hasSession, setHasSession] = useState(null); // null = checking
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({});
@@ -28,8 +30,10 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('superloopz.reset');
-    if (raw) setCreds(JSON.parse(raw));
+    // The invite link puts a session in the URL; give Supabase a moment to parse it.
+    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setHasSession(!!s));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   const allValid = rules.every((r) => r.test(newPassword));
@@ -40,25 +44,15 @@ export default function ResetPasswordPage() {
     setFormError('');
     if (!allValid) return setErrors({ newPassword: 'Password does not meet the requirements' });
     if (newPassword !== confirmPassword) return setErrors({ confirmPassword: 'Passwords do not match' });
-    if (!creds) return setFormError('Your session expired. Please sign in again.');
 
     setLoading(true);
-    try {
-      const res = await api.resetPassword({
-        email: creds.email,
-        currentPassword: creds.currentPassword,
-        newPassword,
-        confirmPassword,
-      });
-      sessionStorage.removeItem('superloopz.reset');
-      if (res.tokens) setTokens(res.tokens);
-      router.push('/vendor/onboarding/profile');
-    } catch (err) {
-      if (err instanceof ApiError && err.fieldErrors) setErrors(err.fieldErrors);
-      setFormError(err.message || 'Could not update your password.');
-    } finally {
-      setLoading(false);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) {
+      setFormError(error.message || 'Could not set your password.');
+      return;
     }
+    router.push(routes.onboarding('profile'));
   };
 
   return (
@@ -71,22 +65,17 @@ export default function ResetPasswordPage() {
 
       <main className="mx-auto flex max-w-md flex-col px-4 py-16">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Set a new password</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose a strong password to secure your account.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Set your password</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Choose a strong password to secure your account.</p>
         </div>
 
         <Card>
           <CardContent className="pt-6">
-            {!creds && (
+            {hasSession === false && (
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription>
-                  Session expired.{' '}
-                  <a href="/vendor/login" className="font-medium underline">
-                    Return to sign in
-                  </a>
-                  .
+                  This link is invalid or expired. Please use the invitation email link, or{' '}
+                  <a href={routes.vendorLogin} className="font-medium underline">sign in</a>.
                 </AlertDescription>
               </Alert>
             )}
@@ -97,46 +86,27 @@ export default function ResetPasswordPage() {
                 </Alert>
               )}
               <Field label="New password" htmlFor="newPassword" error={errors.newPassword} required>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  aria-invalid={!!errors.newPassword}
-                />
+                <Input id="newPassword" type="password" autoComplete="new-password"
+                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} aria-invalid={!!errors.newPassword} />
               </Field>
-
               <ul className="space-y-1">
                 {rules.map((r) => {
                   const ok = r.test(newPassword);
                   return (
                     <li key={r.label} className="flex items-center gap-2 text-xs">
-                      {ok ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <X className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
+                      {ok ? <Check className="h-3.5 w-3.5 text-green-600" /> : <X className="h-3.5 w-3.5 text-muted-foreground" />}
                       <span className={ok ? 'text-green-700' : 'text-muted-foreground'}>{r.label}</span>
                     </li>
                   );
                 })}
               </ul>
-
               <Field label="Confirm password" htmlFor="confirmPassword" error={errors.confirmPassword} required>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  aria-invalid={!!errors.confirmPassword}
-                />
+                <Input id="confirmPassword" type="password" autoComplete="new-password"
+                  value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} aria-invalid={!!errors.confirmPassword} />
               </Field>
-
-              <Button type="submit" className="w-full" disabled={loading || !creds}>
+              <Button type="submit" className="w-full" disabled={loading || hasSession === false}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {loading ? 'Updating…' : 'Update password'}
+                {loading ? 'Saving…' : 'Set password & continue'}
               </Button>
             </form>
           </CardContent>
