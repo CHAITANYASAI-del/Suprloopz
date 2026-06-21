@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,17 +77,10 @@ export default function AddressPage() {
 
     setLoading(true);
     try {
-      const idempotencyKey =
-        (typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
-        `addr-${Date.now()}`;
-      await api.saveAddress(
-        { registered, sameAsBilling, billing: sameAsBilling ? undefined : billing, shipping },
-        idempotencyKey,
-      );
+      await db.saveAddress({ registered, sameAsBilling, billing: sameAsBilling ? undefined : billing, shipping });
       router.push('/vendor/dashboard');
     } catch (err) {
-      if (err instanceof ApiError) setFormError(err.message);
-      else setFormError('Could not save your addresses.');
+      setFormError(err.message || 'Could not save your addresses.');
     } finally {
       setLoading(false);
     }

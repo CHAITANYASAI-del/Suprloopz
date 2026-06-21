@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Clock, FileText } from 'lucide-react';
-import { api } from '@/lib/api';
+import { db } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { routes } from '@/lib/routes';
 import { AppHeader } from '@/components/AppHeader';
@@ -23,9 +23,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    api.onboardingStatus().then(setData).catch(() => {});
-    api.vendorCompany().then((r) => setCompany(r.company)).catch(() => {});
-    api.vendorDocuments().then((r) => setDocs(r.documents || [])).catch(() => {});
+    db.onboarding().then(setData).catch(() => {});
+    db.getCompany().then(setCompany).catch(() => {});
+    db.getDocuments().then(setDocs).catch(() => {});
   }, [isAuthenticated]);
 
   if (!ready || !isAuthenticated) {
@@ -34,7 +34,6 @@ export default function DashboardPage() {
 
   const o = data?.onboarding;
   const steps = [
-    ['Password set', o?.password_reset],
     ['Profile completed', o?.profile_completed],
     ['Company info', o?.company_info_completed],
     ['Legal documents', o?.legal_docs_completed],

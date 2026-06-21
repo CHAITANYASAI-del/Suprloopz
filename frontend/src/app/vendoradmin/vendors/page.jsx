@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Search } from 'lucide-react';
-import { api } from '@/lib/api';
+import { db } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,13 +30,19 @@ export default function VendorsPage() {
       setLoading(true);
       setListError('');
       try {
-        const res = await api.listVendors({
-          page,
-          search: search || undefined,
-          status: status === 'all' ? undefined : status,
-        });
-        setVendors(res.vendors);
-        setPagination(res.pagination);
+        let rows = await db.listVendors();
+        if (status !== 'all') rows = rows.filter((v) => (v.status || 'pending') === status);
+        if (search) {
+          const q = search.toLowerCase();
+          rows = rows.filter((v) =>
+            [v.email, v.first_name, v.last_name, v.legal_name].some((f) => (f || '').toLowerCase().includes(q)),
+          );
+        }
+        const pageSize = 20;
+        const total = rows.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        setVendors(rows.slice((page - 1) * pageSize, page * pageSize));
+        setPagination({ page, pageSize, total, totalPages });
       } catch (err) {
         setListError(err.message || 'Could not load vendors');
       } finally {

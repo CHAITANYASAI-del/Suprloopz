@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Loader2, UserPlus, MailCheck } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/Field';
@@ -33,13 +33,12 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError('Enter a valid email address');
     setLoading(true);
     try {
-      const key = (typeof crypto !== 'undefined' && crypto.randomUUID?.()) || `inv-${Date.now()}`;
-      await api.inviteVendor(email.trim(), key);
-      setOk(`Invitation sent to ${email.trim()}. They'll receive their temporary password by email.`);
+      await db.inviteVendor(email.trim());
+      setOk(`Invitation sent to ${email.trim()}. They'll get an email to set their password and start onboarding.`);
       setEmail('');
       onInvited?.();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) setError('A user with this email already exists');
+      if (err.status === 409) setError('A user with this email already exists');
       else setError(err.message || 'Could not send the invite');
     } finally {
       setLoading(false);

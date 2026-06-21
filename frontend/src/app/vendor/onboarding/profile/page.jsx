@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,14 +39,13 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      await api.saveProfile({
+      await db.saveProfile({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         phone: `${form.countryCode} ${form.phone.trim()}`,
       });
       router.push('/vendor/onboarding/company');
     } catch (err) {
-      if (err instanceof ApiError) setErrors(err.fieldErrors);
       setFormError(err.message || 'Could not save your profile.');
     } finally {
       setLoading(false);

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -31,11 +31,8 @@ export default function LegalPage() {
     if (!file) return update(type, { fileKey: '', error: '' });
     update(type, { uploading: true, error: '' });
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('docType', type);
-      const res = await api.uploadLegal(fd);
-      update(type, { fileKey: res.fileKey, uploading: false });
+      const path = await db.uploadLegal(type, file);
+      update(type, { fileKey: path, uploading: false });
     } catch (err) {
       update(type, { uploading: false, fileKey: '', error: err.message || 'Upload failed' });
     }
@@ -61,18 +58,17 @@ export default function LegalPage() {
 
     setLoading(true);
     try {
-      await api.saveLegal({
-        documents: DOC_TYPES.map(({ type }) => ({
+      await db.saveLegal(
+        DOC_TYPES.map(({ type }) => ({
           docType: type,
           docName: docs[type].docName.trim(),
           docNumber: docs[type].docNumber.trim(),
-          fileKey: docs[type].fileKey,
+          filePath: docs[type].fileKey,
         })),
-      });
+      );
       router.push('/vendor/onboarding/address');
     } catch (err) {
-      if (err instanceof ApiError) setFormError(err.message);
-      else setFormError('Could not save your documents.');
+      setFormError(err.message || 'Could not save your documents.');
     } finally {
       setLoading(false);
     }

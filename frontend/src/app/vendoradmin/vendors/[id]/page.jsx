@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,7 @@ export default function VendorDetailPage() {
 
   const load = () => {
     setLoading(true);
-    api
+    db
       .getVendor(id)
       .then(setData)
       .catch((err) => setError(err.message || 'Could not load vendor'))
@@ -48,7 +48,7 @@ export default function VendorDetailPage() {
   const changeStatus = async (status) => {
     setBusy('status');
     try {
-      await api.setVendorStatus(id, status);
+      await db.setVendorStatus(id, status);
       load();
     } catch (err) {
       setError(err.message);
@@ -57,10 +57,10 @@ export default function VendorDetailPage() {
     }
   };
 
-  const viewDoc = async (fileKey) => {
+  const viewDoc = async (filePath) => {
     try {
-      const res = await api.signedUrl(fileKey);
-      window.open(res.url, '_blank', 'noopener');
+      const url = await db.signedDocUrl(filePath);
+      window.open(url, '_blank', 'noopener');
     } catch (err) {
       setError(err.message || 'Could not open document');
     }
@@ -69,7 +69,7 @@ export default function VendorDetailPage() {
   const verify = async (docId) => {
     setBusy(docId);
     try {
-      await api.verifyDoc(id, docId);
+      await db.verifyDoc(docId);
       load();
     } catch (err) {
       setError(err.message);
@@ -82,12 +82,12 @@ export default function VendorDetailPage() {
     if (!rejectReason.trim()) return;
     setBusy(docId);
     try {
-      await api.rejectDoc(id, docId, rejectReason.trim());
+      await db.rejectDoc(docId);
       setRejecting(null);
       setRejectReason('');
       load();
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
+      setError(err.message);
     } finally {
       setBusy('');
     }
@@ -200,7 +200,7 @@ export default function VendorDetailPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {d.verified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Pending</Badge>}
-                  <Button variant="outline" size="sm" onClick={() => viewDoc(d.file_url)}>
+                  <Button variant="outline" size="sm" onClick={() => viewDoc(d.file_path)}>
                     <ExternalLink className="h-4 w-4" /> View
                   </Button>
                   {isAdmin && !d.verified && (

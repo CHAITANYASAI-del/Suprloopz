@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { api, ApiError } from '@/lib/api';
+import { db } from '@/lib/db';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -65,10 +65,9 @@ export default function CompanyPage() {
 
     setLoading(true);
     try {
-      await api.saveCompany(form);
+      await db.saveCompany(form);
       router.push('/vendor/onboarding/legal');
     } catch (err) {
-      if (err instanceof ApiError) setErrors(err.fieldErrors);
       setFormError(err.message || 'Could not save company information.');
     } finally {
       setLoading(false);
