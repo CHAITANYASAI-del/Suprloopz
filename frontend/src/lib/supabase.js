@@ -11,7 +11,9 @@ export const supabase = createClient(url, key, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true, // needed for invite / password-recovery links
-    flowType: 'pkce',
+    // Implicit flow so server-generated email links (invite/recovery) work —
+    // PKCE would fail since the browser never initiated the flow.
+    flowType: 'implicit',
   },
 });
 
