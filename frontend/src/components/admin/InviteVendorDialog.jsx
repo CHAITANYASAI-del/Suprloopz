@@ -1,56 +1,67 @@
 'use client';
 import { useState } from 'react';
-import { Loader2, UserPlus, MailCheck } from 'lucide-react';
+import { Loader2, UserPlus, MailCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/Field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 
-// Reusable invite button + modal for either a vendor (default) or a staff/admin.
-// Calls onInvited() after success so the caller can refresh its data.
-export function InviteVendorDialog({ onInvited, triggerClassName, role = 'vendor' }) {
-  const isStaff = role === 'admin';
-  const noun = isStaff ? 'staff member' : 'vendor';
-  const triggerLabel = isStaff ? 'Invite staff' : 'Invite vendor';
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Splits a free-text blob into a deduped list of emails. Accepts commas,
+// semicolons, spaces and newlines as separators, so one or many can be pasted.
+function parseEmails(text) {
+  const list = (text || '')
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(list)];
+}
+
+// Invite one or many vendors. Calls onInvited() after at least one succeeds so the
+// caller can refresh its data.
+export function InviteVendorDialog({ onInvited, triggerClassName }) {
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
+  const [text, setText] = useState('');
   const [error, setError] = useState('');
-  const [ok, setOk] = useState('');
+  const [results, setResults] = useState(null); // array of { email, ok, error }
   const [loading, setLoading] = useState(false);
 
+  const emails = parseEmails(text);
+  const invalid = emails.filter((e) => !EMAIL_RE.test(e));
+
   const reset = () => {
-    setEmail('');
+    setText('');
     setError('');
-    setOk('');
+    setResults(null);
     setLoading(false);
   };
 
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    setOk('');
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setError('Enter a valid email address');
+    setResults(null);
+    if (!emails.length) return setError('Enter at least one email address');
+    if (invalid.length) return setError(`These don't look like valid emails: ${invalid.join(', ')}`);
+
     setLoading(true);
     try {
-      await adminApi.invite(email.trim());
-      setOk(
-        isStaff
-          ? `Invite sent to ${email.trim()}. They'll get an email to set their password, then they can sign in to the staff panel.`
-          : `Invitation sent to ${email.trim()}. They'll get an email with a temporary password and a link to sign in, set their own password, and start onboarding.`,
-      );
-      setEmail('');
-      onInvited?.();
+      const res = await adminApi.inviteMany(emails);
+      setResults(res);
+      if (res.some((r) => r.ok)) onInvited?.();
     } catch (err) {
-      if (err.status === 409) setError('A user with this email already exists');
-      else setError(err.message || 'Could not send the invite');
+      setError(err.message || 'Could not send the invites');
     } finally {
       setLoading(false);
     }
   };
+
+  const sent = results?.filter((r) => r.ok) || [];
+  const failed = results?.filter((r) => !r.ok) || [];
 
   return (
     <Dialog
@@ -61,63 +72,85 @@ export function InviteVendorDialog({ onInvited, triggerClassName, role = 'vendor
       }}
     >
       <DialogTrigger asChild>
-        <Button className={triggerClassName} variant={isStaff ? 'outline' : 'default'}>
-          <UserPlus className="h-4 w-4" /> {triggerLabel}
+        <Button className={triggerClassName}>
+          <UserPlus className="h-4 w-4" /> Invite vendor
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite a {noun}</DialogTitle>
+          <DialogTitle>Invite vendors</DialogTitle>
           <DialogDescription>
-            We&apos;ll create their account and email a secure link to set their password.
+            Add one email, or paste many (separated by commas, spaces or new lines). Each
+            gets an account and an email with a temporary password to get started.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="space-y-4">
-          {ok ? (
-            <Alert variant="success">
-              <MailCheck className="h-4 w-4" />
-              <AlertDescription>{ok}</AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <Field label={`${isStaff ? 'Staff' : 'Vendor'} email`} htmlFor="invite-email" error={error} required>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  autoFocus
-                  placeholder={isStaff ? 'teammate@superloopz.com' : 'vendor@company.com'}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  aria-invalid={!!error}
-                />
-              </Field>
-            </>
-          )}
-
-          <div className="flex justify-end gap-2">
-            {ok ? (
-              <>
-                <Button type="button" variant="outline" onClick={() => setOk('')}>
-                  Invite another
-                </Button>
-                <Button type="button" onClick={() => setOpen(false)}>
-                  Done
-                </Button>
-              </>
-            ) : (
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {loading ? 'Sending…' : 'Send invite'}
-              </Button>
+        {results ? (
+          <div className="space-y-4">
+            {sent.length > 0 && (
+              <Alert variant="success">
+                <MailCheck className="h-4 w-4" />
+                <AlertDescription>
+                  Invited {sent.length} vendor{sent.length > 1 ? 's' : ''}. They&apos;ll get an
+                  email with a temporary password to set their own and start onboarding.
+                </AlertDescription>
+              </Alert>
             )}
+            <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
+              {results.map((r) => (
+                <li key={r.email} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="truncate">{r.email}</span>
+                  {r.ok ? (
+                    <span className="flex shrink-0 items-center gap-1 text-green-700">
+                      <CheckCircle2 className="h-4 w-4" /> Invited
+                    </span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1 text-destructive">
+                      <AlertCircle className="h-4 w-4" /> {r.error}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={reset}>
+                Invite more
+              </Button>
+              <Button type="button" onClick={() => setOpen(false)}>
+                Done
+              </Button>
+            </div>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Field label="Vendor email(s)" htmlFor="invite-emails" required>
+              <Textarea
+                id="invite-emails"
+                autoFocus
+                rows={4}
+                placeholder={'vendor@company.com\nanother@company.com, third@company.com'}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </Field>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {emails.length > 0 ? `${emails.length} email${emails.length > 1 ? 's' : ''} ready` : ' '}
+              </span>
+              <Button type="submit" disabled={loading || emails.length === 0}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading
+                  ? 'Sending…'
+                  : `Send invite${emails.length > 1 ? `s (${emails.length})` : ''}`}
+              </Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

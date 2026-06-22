@@ -30,4 +30,7 @@ export const adminApi = {
     return (await call('signedUrl', { path })).url;
   },
   invite: (email) => call('inviteVendor', { email }),
+  async inviteMany(emails) {
+    return (await call('inviteVendors', { emails })).results;
+  },
 };

@@ -9,6 +9,39 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001';
 const ok = (data) => Response.json(data);
 const err = (msg, status = 400) => Response.json({ error: msg }, { status });
 
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Creates one vendor account with a temp password and emails the activation link.
+// Returns a per-email result object (never throws) so callers can batch.
+async function inviteOneVendor(rawEmail) {
+  const email = (rawEmail || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { email: rawEmail, ok: false, error: 'Invalid email' };
+
+  const tempPassword = generateTempPassword();
+  const { data, error } = await vendorAdmin.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+    app_metadata: { role: 'vendor' },
+    user_metadata: { role: 'vendor', must_reset_password: true },
+  });
+  if (error) {
+    const exists = /already|registered|exists/i.test(error.message);
+    return { email, ok: false, error: exists ? 'Already exists' : error.message };
+  }
+
+  const activateUrl =
+    `${siteUrl}/vendor/activate?email=${encodeURIComponent(email)}` +
+    `&tp=${encodeURIComponent(tempPassword)}`;
+  try {
+    await sendVendorInviteEmail({ to: email, tempPassword, activateUrl });
+  } catch (e) {
+    await vendorAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    return { email, ok: false, error: `Email failed: ${e.message}` };
+  }
+  return { email, ok: true };
+}
+
 async function listVendors() {
   const [profiles, vps, comps, oss] = await Promise.all([
     vendorAdmin.from('profiles').select('id,email,role,created_at').eq('role', 'vendor'),
@@ -100,36 +133,19 @@ export async function POST(req) {
         return ok({ url: data.signedUrl });
       }
       case 'inviteVendor': {
-        const email = (body.email || '').trim().toLowerCase();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('A valid email is required');
-
-        // Create the vendor account directly with a temporary password (no Supabase
-        // magic-link email). The handle_new_user trigger reads app_metadata.role to
-        // tag the profile as a vendor and create its onboarding rows.
-        const tempPassword = generateTempPassword();
-        const { data, error } = await vendorAdmin.auth.admin.createUser({
-          email,
-          password: tempPassword,
-          email_confirm: true, // skip Supabase confirmation — we email the creds ourselves
-          app_metadata: { role: 'vendor' },
-          user_metadata: { role: 'vendor', must_reset_password: true },
-        });
-        if (error) return err(error.message, /already|registered|exists/i.test(error.message) ? 409 : 400);
-
-        // The activation link signs the vendor in with the temp password automatically,
-        // then sends them straight to the set-password step.
-        const activateUrl =
-          `${siteUrl}/vendor/activate?email=${encodeURIComponent(email)}` +
-          `&tp=${encodeURIComponent(tempPassword)}`;
-
-        try {
-          await sendVendorInviteEmail({ to: email, tempPassword, activateUrl });
-        } catch (e) {
-          // Account exists but the email failed — roll back so the staff member can retry.
-          await vendorAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
-          return err(`Account created but the invite email could not be sent: ${e.message}`, 502);
-        }
-        return ok({ ok: true, email });
+        const r = await inviteOneVendor(body.email);
+        if (!r.ok) return err(r.error, r.error === 'Already exists' ? 409 : 400);
+        return ok({ ok: true, email: r.email });
+      }
+      case 'inviteVendors': {
+        // Bulk invite: dedupe, then invite each (sequential to stay under email
+        // rate limits). Always 200 with a per-email results array.
+        const raw = Array.isArray(body.emails) ? body.emails : [];
+        const emails = [...new Set(raw.map((e) => (e || '').trim().toLowerCase()).filter(Boolean))];
+        if (!emails.length) return err('No emails provided');
+        const results = [];
+        for (const e of emails) results.push(await inviteOneVendor(e));
+        return ok({ results });
       }
       default:
         return err('Unknown action');
