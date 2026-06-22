@@ -31,22 +31,25 @@ export default function SetPasswordPage() {
 
   useEffect(() => {
     // The invite link puts a session in the URL; give Supabase a moment to parse it.
-    const handle = (session) => {
+    const decide = async (session) => {
+      if (!session) { setHasSession(false); return; }
       // A staff member who landed here gets sent to the staff set-password page.
-      if (session && roleOf(session.user) !== 'vendor') {
+      if (roleOf(session.user) !== 'vendor') {
         router.replace(routes.adminSetPassword);
         return;
       }
-      // A vendor who already set their password and re-opens the link resumes
-      // in their portal instead of seeing the set-password form again.
-      if (session?.user?.user_metadata?.password_set) {
+      // A vendor who already set their password and re-opens the link resumes in
+      // their portal instead of seeing the form again. Read fresh metadata — the
+      // cached session may predate the password_set flag.
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.user_metadata?.password_set) {
         router.replace(routes.vendorHome);
         return;
       }
-      setHasSession(!!session);
+      setHasSession(true);
     };
-    supabase.auth.getSession().then(({ data }) => handle(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => handle(s));
+    supabase.auth.getSession().then(({ data }) => decide(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => decide(s));
     return () => sub.subscription.unsubscribe();
   }, [router]);
 

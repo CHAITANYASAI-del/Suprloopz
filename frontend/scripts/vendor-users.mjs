@@ -32,10 +32,19 @@ for (const u of users) {
   console.log(`  ${u.email}  | role=${u.app_metadata?.role || '—'} | created=${u.created_at}`);
 }
 
-if (cmd === 'del' && email) {
+if ((cmd === 'del' || cmd === 'mark') && email) {
   const target = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  if (!target) { console.log(`\nNo user "${email}" found — nothing to delete.`); process.exit(0); }
-  const del = await fetch(`${BASE}/${target.id}`, { method: 'DELETE', headers });
-  if (!del.ok) { console.error('delete error:', del.status, await del.text()); process.exit(1); }
-  console.log(`\n✅ Deleted ${email} from the VENDOR project.`);
+  if (!target) { console.log(`\nNo user "${email}" found.`); process.exit(0); }
+  if (cmd === 'del') {
+    const del = await fetch(`${BASE}/${target.id}`, { method: 'DELETE', headers });
+    if (!del.ok) { console.error('delete error:', del.status, await del.text()); process.exit(1); }
+    console.log(`\n✅ Deleted ${email} from the VENDOR project.`);
+  } else {
+    const put = await fetch(`${BASE}/${target.id}`, {
+      method: 'PUT', headers,
+      body: JSON.stringify({ user_metadata: { ...(target.user_metadata || {}), password_set: true } }),
+    });
+    if (!put.ok) { console.error('update error:', put.status, await put.text()); process.exit(1); }
+    console.log(`\n✅ Marked ${email} as password_set in the VENDOR project.`);
+  }
 }

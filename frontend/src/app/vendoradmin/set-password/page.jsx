@@ -32,15 +32,19 @@ export default function StaffSetPasswordPage() {
     // Someone who has already set their password and re-opens the invite link
     // (their browser still has a session) should go straight to the admin panel,
     // not see the set-password form again.
-    const handle = (session) => {
-      if (session?.user?.user_metadata?.password_set) {
+    const decide = async (session) => {
+      if (!session) { setHasSession(false); return; }
+      // Read fresh metadata from the server — the locally cached session may
+      // predate the password_set flag, so getSession() alone isn't enough.
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.user_metadata?.password_set) {
         router.replace(routes.adminHome);
         return;
       }
-      setHasSession(!!session);
+      setHasSession(true);
     };
-    supabase.auth.getSession().then(({ data }) => handle(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => handle(s));
+    supabase.auth.getSession().then(({ data }) => decide(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => decide(s));
     return () => sub.subscription.unsubscribe();
   }, [router]);
 

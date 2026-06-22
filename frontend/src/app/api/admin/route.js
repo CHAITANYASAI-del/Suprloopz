@@ -20,10 +20,15 @@ async function listVendors() {
   const c = Object.fromEntries((comps.data || []).map((r) => [r.user_id, r]));
   const o = Object.fromEntries((oss.data || []).map((r) => [r.user_id, r]));
   return (profiles.data || []).map((p) => ({
-    id: p.id, email: p.email, created_at: p.created_at,
+    // Spread the joined rows first, then force the identity fields last so the
+    // vendor_profiles / onboarding_status `id` and `user_id` columns can't clobber
+    // the auth user id we link the row to.
     ...(vp[p.id] || {}),
-    legal_name: c[p.id]?.legal_name, trade_name: c[p.id]?.trade_name, industry: c[p.id]?.industry,
     ...(o[p.id] || {}),
+    legal_name: c[p.id]?.legal_name, trade_name: c[p.id]?.trade_name, industry: c[p.id]?.industry,
+    email: p.email,
+    created_at: p.created_at,
+    id: p.id,
   }));
 }
 

@@ -100,11 +100,16 @@ export default function VendorDetailPage() {
       </div>
     );
   }
-  if (error && !data) {
+  if ((error && !data) || (data && !data.user)) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" onClick={() => router.push('/vendoradmin/vendors')} className="-ml-2">
+          <ArrowLeft className="h-4 w-4" /> Back to vendors
+        </Button>
+        <Alert variant="destructive">
+          <AlertDescription>{error || 'This vendor could not be found.'}</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
