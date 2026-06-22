@@ -39,8 +39,13 @@ export default function SetPasswordPage() {
         return;
       }
       // A vendor who already set their password and re-opens the link resumes in
-      // their portal instead of seeing the form again. Read fresh metadata — the
-      // cached session may predate the password_set flag.
+      // their portal instead of seeing the form again.
+      // Fast path: cached session already shows the flag → redirect instantly.
+      if (session.user?.user_metadata?.password_set) {
+        router.replace(routes.vendorHome);
+        return;
+      }
+      // Slow path: a cached session can predate the flag → confirm with the server.
       const { data } = await supabase.auth.getUser();
       if (data?.user?.user_metadata?.password_set) {
         router.replace(routes.vendorHome);
@@ -87,6 +92,13 @@ export default function SetPasswordPage() {
       </header>
 
       <main className="mx-auto flex max-w-md flex-col px-4 py-16">
+        {hasSession === null ? (
+          <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="text-sm">Signing you in…</p>
+          </div>
+        ) : (
+        <>
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Set your password</h1>
           <p className="mt-1 text-sm text-muted-foreground">Choose a strong password to secure your account.</p>
@@ -134,6 +146,8 @@ export default function SetPasswordPage() {
             </form>
           </CardContent>
         </Card>
+        </>
+        )}
       </main>
     </div>
   );

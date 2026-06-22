@@ -34,8 +34,12 @@ export default function StaffSetPasswordPage() {
     // not see the set-password form again.
     const decide = async (session) => {
       if (!session) { setHasSession(false); return; }
-      // Read fresh metadata from the server — the locally cached session may
-      // predate the password_set flag, so getSession() alone isn't enough.
+      // Fast path: the cached session already shows the flag → redirect instantly.
+      if (session.user?.user_metadata?.password_set) {
+        router.replace(routes.adminHome);
+        return;
+      }
+      // Slow path: a cached session can predate the flag → confirm with the server.
       const { data } = await supabase.auth.getUser();
       if (data?.user?.user_metadata?.password_set) {
         router.replace(routes.adminHome);
@@ -83,6 +87,13 @@ export default function StaffSetPasswordPage() {
       </header>
 
       <main className="mx-auto flex max-w-md flex-col px-4 py-16">
+        {hasSession === null ? (
+          <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="text-sm">Signing you in…</p>
+          </div>
+        ) : (
+        <>
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Set your staff password</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -132,6 +143,8 @@ export default function StaffSetPasswordPage() {
             </form>
           </CardContent>
         </Card>
+        </>
+        )}
       </main>
     </div>
   );
