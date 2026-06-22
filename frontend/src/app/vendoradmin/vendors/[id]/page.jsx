@@ -58,10 +58,15 @@ export default function VendorDetailPage() {
   };
 
   const viewDoc = async (filePath) => {
+    // Open the tab synchronously inside the click gesture, then point it at the
+    // signed URL once it resolves — opening after the await trips popup blockers.
+    const win = window.open('', '_blank');
     try {
       const url = await adminApi.signedDocUrl(filePath);
-      window.open(url, '_blank', 'noopener');
+      if (win) win.location.href = url;
+      else window.location.href = url; // popup blocked → navigate current tab
     } catch (err) {
+      if (win) win.close();
       setError(err.message || 'Could not open document');
     }
   };
@@ -190,7 +195,7 @@ export default function VendorDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Legal documents</CardTitle>
-          <CardDescription>Stored on-premise (MinIO). Access via signed links only.</CardDescription>
+          <CardDescription>Stored in Supabase Storage. Access via signed links only.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {documents.length === 0 && <p className="text-sm text-muted-foreground">No documents submitted.</p>}
