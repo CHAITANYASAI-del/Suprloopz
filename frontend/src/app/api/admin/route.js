@@ -33,13 +33,19 @@ async function inviteOneVendor(rawEmail) {
   const activateUrl =
     `${siteUrl}/vendor/activate?email=${encodeURIComponent(email)}` +
     `&tp=${encodeURIComponent(tempPassword)}`;
+
+  // Try to email the credentials, but keep the account even if delivery fails
+  // (e.g. Resend test mode rejects non-owner addresses). The activation link is
+  // returned so staff can share it manually until a sending domain is verified.
+  let emailed = true;
+  let emailError = null;
   try {
     await sendVendorInviteEmail({ to: email, tempPassword, activateUrl });
   } catch (e) {
-    await vendorAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
-    return { email, ok: false, error: `Email failed: ${e.message}` };
+    emailed = false;
+    emailError = e.message;
   }
-  return { email, ok: true };
+  return { email, ok: true, emailed, emailError, link: activateUrl };
 }
 
 async function listVendors() {

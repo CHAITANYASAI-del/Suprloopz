@@ -10,6 +10,7 @@ const alertVariants = cva(
         default: 'bg-background text-foreground',
         destructive: 'border-destructive/50 text-destructive [&>svg]:text-destructive bg-destructive/5',
         success: 'border-green-500/40 text-green-700 [&>svg]:text-green-600 bg-green-50',
+        warning: 'border-amber-500/40 text-amber-700 [&>svg]:text-amber-600 bg-amber-50',
       },
     },
     defaultVariants: { variant: 'default' },
