@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, ExternalLink, CheckCircle2, XCircle, Eye, Maximize2 } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const statusVariant = { active: 'success', pending: 'warning', suspended: 'destructive' };
 
@@ -34,6 +35,8 @@ export default function VendorDetailPage() {
   const [busy, setBusy] = useState('');
   const [rejecting, setRejecting] = useState(null); // docId being rejected
   const [rejectReason, setRejectReason] = useState('');
+  const [viewing, setViewing] = useState(null); // doc being previewed in the modal
+  const iframeRef = useRef(null);
 
   const load = () => {
     setLoading(true);
@@ -57,19 +60,7 @@ export default function VendorDetailPage() {
     }
   };
 
-  const viewDoc = async (filePath) => {
-    // Open the tab synchronously inside the click gesture, then point it at the
-    // signed URL once it resolves — opening after the await trips popup blockers.
-    const win = window.open('', '_blank');
-    try {
-      const url = await adminApi.signedDocUrl(filePath);
-      if (win) win.location.href = url;
-      else window.location.href = url; // popup blocked → navigate current tab
-    } catch (err) {
-      if (win) win.close();
-      setError(err.message || 'Could not open document');
-    }
-  };
+  const fullscreen = () => iframeRef.current?.requestFullscreen?.();
 
   const verify = async (docId) => {
     setBusy(docId);
@@ -210,8 +201,8 @@ export default function VendorDetailPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {d.verified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Pending</Badge>}
-                  <Button variant="outline" size="sm" onClick={() => viewDoc(d.file_path)}>
-                    <ExternalLink className="h-4 w-4" /> View
+                  <Button variant="outline" size="sm" disabled={!d.signed_url} onClick={() => setViewing(d)}>
+                    <Eye className="h-4 w-4" /> View
                   </Button>
                   {isAdmin && !d.verified && (
                     <>
@@ -295,6 +286,36 @@ export default function VendorDetailPage() {
           <Row label="Fully onboarded" value={onboarding?.fully_onboarded ? 'Yes' : 'No'} />
         </CardContent>
       </Card>
+
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center justify-between gap-3 pr-6">
+              <span>
+                {viewing?.doc_type} · {viewing?.doc_name}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={fullscreen}>
+                  <Maximize2 className="h-4 w-4" /> Fullscreen
+                </Button>
+                <a href={viewing?.signed_url} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm">
+                    <ExternalLink className="h-4 w-4" /> New tab
+                  </Button>
+                </a>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {viewing?.signed_url && (
+            <iframe
+              ref={iframeRef}
+              src={viewing.signed_url}
+              title={`${viewing.doc_type} document`}
+              className="h-[75vh] w-full rounded-md border bg-white"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

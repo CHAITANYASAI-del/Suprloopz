@@ -65,9 +65,21 @@ export async function POST(req) {
           vendorAdmin.from('addresses').select('*').eq('user_id', id).order('type'),
           vendorAdmin.from('profiles').select('id,email,role,created_at').eq('id', id).maybeSingle(),
         ]);
+
+        // Pre-sign every document link (valid 1h) so the admin's "View" is instant
+        // and doesn't need a per-click round-trip.
+        const docRows = documents.data || [];
+        const paths = docRows.map((d) => d.file_path).filter(Boolean);
+        let signed = {};
+        if (paths.length) {
+          const { data: urls } = await vendorAdmin.storage.from('legal-docs').createSignedUrls(paths, 3600);
+          signed = Object.fromEntries((urls || []).map((u) => [u.path, u.signedUrl]));
+        }
+        const documentsWithUrls = docRows.map((d) => ({ ...d, signed_url: signed[d.file_path] || null }));
+
         return ok({
           user: prof.data, profile: profile.data, company: company.data,
-          onboarding: onboarding.data, documents: documents.data || [],
+          onboarding: onboarding.data, documents: documentsWithUrls,
           addresses: addresses.data || [], activity: [],
         });
       }
