@@ -29,10 +29,20 @@ export default function StaffSetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setHasSession(!!s));
+    // Someone who has already set their password and re-opens the invite link
+    // (their browser still has a session) should go straight to the admin panel,
+    // not see the set-password form again.
+    const handle = (session) => {
+      if (session?.user?.user_metadata?.password_set) {
+        router.replace(routes.adminHome);
+        return;
+      }
+      setHasSession(!!session);
+    };
+    supabase.auth.getSession().then(({ data }) => handle(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => handle(s));
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [router]);
 
   const allValid = rules.every((r) => r.test(newPassword));
 
@@ -44,7 +54,11 @@ export default function StaffSetPasswordPage() {
     if (newPassword !== confirmPassword) return setErrors({ confirmPassword: 'Passwords do not match' });
 
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    // Tag the account so a later re-click of the invite link skips this page.
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: { password_set: true },
+    });
     setLoading(false);
     if (error) {
       setFormError(error.message || 'Could not set your password.');

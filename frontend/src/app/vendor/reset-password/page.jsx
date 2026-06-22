@@ -37,6 +37,12 @@ export default function SetPasswordPage() {
         router.replace(routes.adminSetPassword);
         return;
       }
+      // A vendor who already set their password and re-opens the link resumes
+      // in their portal instead of seeing the set-password form again.
+      if (session?.user?.user_metadata?.password_set) {
+        router.replace(routes.vendorHome);
+        return;
+      }
       setHasSession(!!session);
     };
     supabase.auth.getSession().then(({ data }) => handle(data.session));
@@ -54,7 +60,11 @@ export default function SetPasswordPage() {
     if (newPassword !== confirmPassword) return setErrors({ confirmPassword: 'Passwords do not match' });
 
     setLoading(true);
-    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    // Tag the account so a later re-click of the invite link skips this page.
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+      data: { password_set: true },
+    });
     setLoading(false);
     if (error) {
       setFormError(error.message || 'Could not set your password.');
