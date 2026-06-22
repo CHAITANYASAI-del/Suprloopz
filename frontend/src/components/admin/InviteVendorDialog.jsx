@@ -40,7 +40,7 @@ export function InviteVendorDialog({ onInvited, triggerClassName, role = 'vendor
       setOk(
         isStaff
           ? `Invite sent to ${email.trim()}. They'll get an email to set their password, then they can sign in to the staff panel.`
-          : `Invitation sent to ${email.trim()}. They'll get an email to set their password and start onboarding.`,
+          : `Invitation sent to ${email.trim()}. They'll get an email with a temporary password and a link to sign in, set their own password, and start onboarding.`,
       );
       setEmail('');
       onInvited?.();

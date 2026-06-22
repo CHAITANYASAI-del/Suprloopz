@@ -9,6 +9,7 @@ export const routes = {
   // vendor portal
   vendorHome: VENDOR_PREFIX,
   vendorLogin: `${VENDOR_PREFIX}/login`,
+  vendorActivate: `${VENDOR_PREFIX}/activate`,
   vendorReset: `${VENDOR_PREFIX}/reset-password`,
   vendorDashboard: `${VENDOR_PREFIX}/dashboard`,
   onboarding: (step) => `${VENDOR_PREFIX}/onboarding/${step}`,

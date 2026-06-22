@@ -27,3 +27,12 @@ export async function verifyStaff(req) {
   if (error || !data?.user) return null;
   return data.user;
 }
+
+// Confirms a bearer token belongs to a real VENDOR-project user.
+export async function verifyVendor(req) {
+  const token = (req.headers.get('authorization') || '').replace('Bearer ', '');
+  if (!token) return null;
+  const { data, error } = await vendorAdmin.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}

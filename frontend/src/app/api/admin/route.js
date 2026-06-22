@@ -1,6 +1,7 @@
 // Consolidated admin API. The caller must be a STAFF-project user; all data
 // operations run against the VENDOR project with the service key (RLS bypass).
 import { vendorAdmin, verifyStaff } from '@/lib/serverSupabase';
+import { generateTempPassword, sendVendorInviteEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -84,12 +85,33 @@ export async function POST(req) {
       case 'inviteVendor': {
         const email = (body.email || '').trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('A valid email is required');
-        const { data, error } = await vendorAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: `${siteUrl}/vendor/reset-password`,
-          data: { role: 'vendor' },
+
+        // Create the vendor account directly with a temporary password (no Supabase
+        // magic-link email). The handle_new_user trigger reads app_metadata.role to
+        // tag the profile as a vendor and create its onboarding rows.
+        const tempPassword = generateTempPassword();
+        const { data, error } = await vendorAdmin.auth.admin.createUser({
+          email,
+          password: tempPassword,
+          email_confirm: true, // skip Supabase confirmation — we email the creds ourselves
+          app_metadata: { role: 'vendor' },
+          user_metadata: { role: 'vendor', must_reset_password: true },
         });
-        if (error) return err(error.message, /already/i.test(error.message) ? 409 : 400);
-        await vendorAdmin.auth.admin.updateUserById(data.user.id, { app_metadata: { role: 'vendor' } });
+        if (error) return err(error.message, /already|registered|exists/i.test(error.message) ? 409 : 400);
+
+        // The activation link signs the vendor in with the temp password automatically,
+        // then sends them straight to the set-password step.
+        const activateUrl =
+          `${siteUrl}/vendor/activate?email=${encodeURIComponent(email)}` +
+          `&tp=${encodeURIComponent(tempPassword)}`;
+
+        try {
+          await sendVendorInviteEmail({ to: email, tempPassword, activateUrl });
+        } catch (e) {
+          // Account exists but the email failed — roll back so the staff member can retry.
+          await vendorAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
+          return err(`Account created but the invite email could not be sent: ${e.message}`, 502);
+        }
         return ok({ ok: true, email });
       }
       default:
