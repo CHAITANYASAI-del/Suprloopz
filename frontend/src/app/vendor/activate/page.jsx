@@ -1,88 +1,72 @@
 'use client';
 // Landing page for the vendor invitation button. The invite email links here with
-// the email + temporary password as query params, so both fields arrive pre-filled.
-// The vendor clicks "Continue", we sign them in with the temp password, then send
-// them straight to the set-password step.
+// the email + temporary password as query params. We validate the link on load by
+// signing in with the temp password: success → straight to set-password; failure
+// (invite revoked, already used, or bad link) → a clear "no longer valid" screen.
+// The vendor never sees a credentials form.
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { routes } from '@/lib/routes';
 import { Logo } from '@/components/Logo';
-import { Field } from '@/components/Field';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function ActivateForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [tempPassword, setTempPassword] = useState('');
-  const [formError, setFormError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
-  // Pre-fill from the invite link.
   useEffect(() => {
-    setEmail(params.get('email') || '');
-    setTempPassword(params.get('tp') || '');
-  }, [params]);
+    const email = params.get('email');
+    const tp = params.get('tp');
+    if (!email || !tp) {
+      setInvalid(true);
+      return;
+    }
+    let active = true;
+    supabase.auth.signInWithPassword({ email, password: tp }).then(({ error }) => {
+      if (!active) return;
+      if (error) setInvalid(true);
+      else router.replace(routes.vendorReset); // signed in → set your own password
+    });
+    return () => {
+      active = false;
+    };
+  }, [params, router]);
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setFormError('');
-    if (!email || !tempPassword) {
-      setFormError('Missing email or temporary password. Please use the link from your invitation email.');
-      return;
-    }
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: tempPassword });
-    setLoading(false);
-    if (error) {
-      setFormError(
-        'That temporary password is no longer valid. If you already set your own password, please sign in instead.',
-      );
-      return;
-    }
-    // Signed in → force them to set their own password before onboarding.
-    router.replace(routes.vendorReset);
-  };
+  if (!invalid) {
+    return (
+      <main className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <p className="mt-3 text-sm">Signing you in…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex max-w-md flex-col px-4 py-16">
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome to SuperLoopz</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your credentials are filled in from your invitation. Click continue to get started.
-        </p>
-      </div>
-
       <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={submit} className="space-y-4" noValidate>
-            {formError && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {formError}{' '}
-                  <a href={routes.vendorLogin} className="font-medium underline">Sign in</a>
-                </AlertDescription>
-              </Alert>
-            )}
-            <Field label="Email" htmlFor="email" required>
-              <Input id="email" type="email" autoComplete="username" value={email} readOnly />
-            </Field>
-            <Field label="Temporary password" htmlFor="tp" required>
-              <Input id="tp" type="password" autoComplete="current-password" value={tempPassword} readOnly />
-            </Field>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading ? 'Signing in…' : 'Continue'}
+        <CardContent className="space-y-4 pt-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Invitation no longer valid</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This invitation link has expired or was revoked by an administrator. If you&apos;ve already
+              set up your account, sign in below. Otherwise, please reach out to your SuperLoopz
+              administrator to request a new invitation.
+            </p>
+          </div>
+          <a href={routes.vendorLogin}>
+            <Button variant="outline" className="w-full">
+              Go to sign in
             </Button>
-          </form>
+          </a>
         </CardContent>
       </Card>
-
       <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
     </main>
   );
