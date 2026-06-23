@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { InviteVendorDialog } from '@/components/admin/InviteVendorDialog';
+import { InvitedActions } from '@/components/admin/InvitedActions';
 import { StatusBadge, Avatar, OnboardingDots, vendorName } from '@/components/admin/shared';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,7 @@ function StatCard({ icon: Icon, label, value, tone = 'default', loading }) {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { vendors, stats, loading, refresh } = useAdminData() || {};
   const [tab, setTab] = useState('active');
 
@@ -150,7 +152,7 @@ export default function AdminDashboard() {
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead className="hidden sm:table-cell">Invited</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>{isAdmin ? <span className="sr-only">Actions</span> : 'Status'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,9 +174,13 @@ export default function AdminDashboard() {
                       <TableCell className="font-medium">{v.email}</TableCell>
                       <TableCell className="hidden text-muted-foreground sm:table-cell">{timeAgo(v.invited_at)}</TableCell>
                       <TableCell>
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                          Awaiting acceptance
-                        </span>
+                        {isAdmin ? (
+                          <InvitedActions vendor={v} />
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            Awaiting acceptance
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

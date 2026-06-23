@@ -1,17 +1,16 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Search, Send, Ban, Check } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { useAdminData } from '@/lib/adminData';
-import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InviteVendorDialog } from '@/components/admin/InviteVendorDialog';
+import { InvitedActions } from '@/components/admin/InvitedActions';
 import { StatusBadge, Avatar, OnboardingDots, vendorName } from '@/components/admin/shared';
 import { cn } from '@/lib/utils';
 
@@ -114,7 +113,7 @@ export default function VendorsPage() {
           onOpen={(id) => router.push(`/vendoradmin/vendors/${id}`)}
         />
       ) : (
-        <InvitedTab rows={invited} loading={loading} isAdmin={isAdmin} refresh={refresh} />
+        <InvitedTab rows={invited} loading={loading} isAdmin={isAdmin} />
       )}
     </div>
   );
@@ -204,116 +203,47 @@ function ActiveTab({ rows, loading, search, setSearch, status, setStatus, onOpen
   );
 }
 
-function InvitedTab({ rows, loading, isAdmin, refresh }) {
-  const [busy, setBusy] = useState('');
-  const [resent, setResent] = useState({});
-  const [confirmId, setConfirmId] = useState(null);
-  const [err, setErr] = useState('');
-
-  const resend = async (id) => {
-    setBusy(id);
-    setErr('');
-    try {
-      await adminApi.resendInvite(id);
-      setResent((r) => ({ ...r, [id]: true }));
-      setTimeout(() => setResent((r) => ({ ...r, [id]: false })), 2500);
-    } catch (e) {
-      setErr(e.message || 'Could not resend');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const remove = async (id) => {
-    setBusy(id);
-    setErr('');
-    try {
-      await adminApi.deleteVendor(id);
-      setConfirmId(null);
-      await refresh();
-    } catch (e) {
-      setErr(e.message || 'Could not delete');
-    } finally {
-      setBusy('');
-    }
-  };
-
+function InvitedTab({ rows, loading, isAdmin }) {
   return (
-    <>
-      {err && (
-        <Alert variant="destructive">
-          <AlertDescription>{err}</AlertDescription>
-        </Alert>
-      )}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Email</TableHead>
+              <TableHead className="hidden sm:table-cell">Invited</TableHead>
+              {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
               <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead className="hidden sm:table-cell">Invited</TableHead>
-                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                  </TableCell>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
+                  No pending invitations — everyone you invited has accepted. 🎉
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((v) => (
+                <TableRow key={v.id}>
+                  <TableCell className="font-medium">{v.email}</TableCell>
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">{timeAgo(v.invited_at)}</TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <InvitedActions vendor={v} />
+                    </TableCell>
+                  )}
                 </TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
-                    No pending invitations — everyone you invited has accepted. 🎉
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((v) => (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">{v.email}</TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">{timeAgo(v.invited_at)}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-2">
-                          {confirmId === v.id ? (
-                            <>
-                              <span className="text-xs text-muted-foreground">Revoke this invitation? Their link stops working.</span>
-                              <Button size="sm" variant="destructive" disabled={busy === v.id} onClick={() => remove(v.id)}>
-                                {busy === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Revoke'}
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setConfirmId(null)}>
-                                Cancel
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button size="sm" variant="outline" disabled={busy === v.id} onClick={() => resend(v.id)}>
-                                {resent[v.id] ? (
-                                  <>
-                                    <Check className="h-4 w-4" /> Sent
-                                  </>
-                                ) : (
-                                  <>
-                                    <Send className="h-4 w-4" /> Resend
-                                  </>
-                                )}
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setConfirmId(v.id)}>
-                                <Ban className="h-4 w-4" /> Revoke
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
