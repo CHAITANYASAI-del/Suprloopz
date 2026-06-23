@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Loader2, UserPlus, MailCheck, CheckCircle2, AlertCircle, Copy, Check } from 'lucide-react';
+import { Loader2, UserPlus, MailCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,17 +30,6 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
   const [error, setError] = useState('');
   const [results, setResults] = useState(null); // array of { email, ok, emailed, error, link }
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState('');
-
-  const copyLink = async (email, link) => {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(email);
-      setTimeout(() => setCopied(''), 1500);
-    } catch {
-      /* clipboard blocked — ignore */
-    }
-  };
 
   const emails = parseEmails(text);
   const invalid = emails.filter((e) => !EMAIL_RE.test(e));
@@ -113,9 +102,8 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {notEmailed.length} account{notEmailed.length > 1 ? 's were' : ' was'} created but
-                  the email couldn&apos;t be sent (likely Resend test mode). Use{' '}
-                  <strong>Copy link</strong> below and share it directly — it signs them in and
-                  starts onboarding.
+                  the invite email couldn&apos;t be sent. Double-check the address, then try inviting
+                  again.
                 </AlertDescription>
               </Alert>
             )}
@@ -124,14 +112,8 @@ export function InviteVendorDialog({ onInvited, triggerClassName }) {
                 <li key={r.email} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                   <span className="truncate">{r.email}</span>
                   {r.ok ? (
-                    <span className="flex shrink-0 items-center gap-2">
-                      <span className={`flex items-center gap-1 ${r.emailed ? 'text-green-700' : 'text-amber-600'}`}>
-                        <CheckCircle2 className="h-4 w-4" /> {r.emailed ? 'Invited' : 'Created'}
-                      </span>
-                      <Button type="button" variant="outline" size="sm" onClick={() => copyLink(r.email, r.link)}>
-                        {copied === r.email ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copied === r.email ? 'Copied' : 'Copy link'}
-                      </Button>
+                    <span className={`flex shrink-0 items-center gap-1 ${r.emailed ? 'text-green-700' : 'text-amber-600'}`}>
+                      <CheckCircle2 className="h-4 w-4" /> {r.emailed ? 'Invited' : 'Created'}
                     </span>
                   ) : (
                     <span className="flex shrink-0 items-center gap-1 text-destructive">

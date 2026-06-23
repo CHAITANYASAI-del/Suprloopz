@@ -44,7 +44,31 @@ export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
       go to the sign-in page and enter the email and temporary password above.
       This temporary password stops working once you set your own.
     </p>
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px" />
+    <p style="margin:0;font-size:12px;color:#94a3b8">
+      SuperLoopz · Vendor Onboarding<br />
+      You're receiving this because a SuperLoopz team member invited you as a vendor.
+      Questions? Reply to this email and our team will help.
+    </p>
   </div>`;
+
+  // Plain-text alternative — emails with only HTML score worse with spam filters.
+  const text = [
+    "You're invited to SuperLoopz",
+    '',
+    'A SuperLoopz team member has created your vendor account. Use the temporary',
+    "credentials below to sign in — you'll set your own password right away.",
+    '',
+    `Email: ${to}`,
+    `Temporary password: ${tempPassword}`,
+    '',
+    `Sign in & get started: ${activateUrl}`,
+    '',
+    'This temporary password stops working once you set your own.',
+    '',
+    'SuperLoopz · Vendor Onboarding',
+    "You're receiving this because a SuperLoopz team member invited you as a vendor.",
+  ].join('\n');
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
@@ -52,8 +76,10 @@ export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
     body: JSON.stringify({
       from,
       to: [to],
+      reply_to: 'support@suprloopz.com',
       subject: 'Your SuperLoopz vendor invitation',
       html,
+      text,
     }),
   });
 
