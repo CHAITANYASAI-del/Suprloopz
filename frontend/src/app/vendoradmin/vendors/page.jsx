@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Search, Send, Trash2, Check } from 'lucide-react';
+import { Loader2, Search, Send, Ban, Check } from 'lucide-react';
 import { useAdminData } from '@/lib/adminData';
 import { adminApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/auth';
@@ -93,7 +93,7 @@ export default function VendorsPage() {
       </div>
 
       <div className="flex gap-5 border-b">
-        <Tab id="active" label="Vendors" count={accepted.length} />
+        <Tab id="active" label="Active vendors" count={accepted.length} />
         <Tab id="invited" label="Invited" count={invited.length} />
       </div>
 
@@ -278,9 +278,9 @@ function InvitedTab({ rows, loading, isAdmin, refresh }) {
                         <div className="flex items-center justify-end gap-2">
                           {confirmId === v.id ? (
                             <>
-                              <span className="text-xs text-muted-foreground">Delete this invite?</span>
+                              <span className="text-xs text-muted-foreground">Revoke this invitation? Their link stops working.</span>
                               <Button size="sm" variant="destructive" disabled={busy === v.id} onClick={() => remove(v.id)}>
-                                {busy === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm'}
+                                {busy === v.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Revoke'}
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => setConfirmId(null)}>
                                 Cancel
@@ -300,7 +300,7 @@ function InvitedTab({ rows, loading, isAdmin, refresh }) {
                                 )}
                               </Button>
                               <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setConfirmId(v.id)}>
-                                <Trash2 className="h-4 w-4" /> Delete
+                                <Ban className="h-4 w-4" /> Revoke
                               </Button>
                             </>
                           )}
