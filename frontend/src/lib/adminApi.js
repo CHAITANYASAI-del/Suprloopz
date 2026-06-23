@@ -22,6 +22,8 @@ export const adminApi = {
   async stats() {
     return (await call('list')).stats;
   },
+  // Single request returning both, for the dashboard + notifications provider.
+  listAll: () => call('list'),
   getVendor: (userId) => call('get', { userId }),
   setVendorStatus: (userId, status) => call('setStatus', { userId, status }),
   verifyDoc: (docId) => call('verifyDoc', { docId }),
@@ -33,4 +35,6 @@ export const adminApi = {
   async inviteMany(emails) {
     return (await call('inviteVendors', { emails })).results;
   },
+  resendInvite: (userId) => call('resendInvite', { userId }),
+  deleteVendor: (userId) => call('deleteVendor', { userId }),
 };

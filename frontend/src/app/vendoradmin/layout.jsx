@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { LayoutDashboard, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AppHeader } from '@/components/AppHeader';
+import { AdminDataProvider } from '@/lib/adminData';
+import { NotificationBell, Toaster } from '@/components/admin/Notifications';
 import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
@@ -39,30 +41,36 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <AppHeader subtitle="Admin panel" />
-      <nav className="border-b bg-background">
-        <div className="mx-auto flex max-w-6xl gap-1 px-4">
-          {NAV.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                  active
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4" /> {label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-    </div>
+    <AdminDataProvider>
+      <div className="min-h-screen bg-muted/30">
+        <AppHeader subtitle="Admin panel" />
+        <nav className="border-b bg-background">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
+            <div className="flex gap-1">
+              {NAV.map(({ href, label, icon: Icon, exact }) => {
+                const active = exact ? pathname === href : pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      'flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
+                      active
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" /> {label}
+                  </Link>
+                );
+              })}
+            </div>
+            <NotificationBell />
+          </div>
+        </nav>
+        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+        <Toaster />
+      </div>
+    </AdminDataProvider>
   );
 }

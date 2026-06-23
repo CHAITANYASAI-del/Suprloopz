@@ -1,9 +1,8 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Users, CheckCircle2, Clock, Ban, ShieldCheck, FileClock, ArrowRight, Loader2 } from 'lucide-react';
-import { adminApi } from '@/lib/adminApi';
+import { Users, CheckCircle2, Clock, Ban, ShieldCheck, FileClock, ArrowRight, Loader2, MailPlus } from 'lucide-react';
+import { useAdminData } from '@/lib/adminData';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,21 +38,14 @@ function StatCard({ icon: Icon, label, value, tone = 'default', loading }) {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
-  const [stats, setStats] = useState(null);
-  const [recent, setRecent] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { vendors, stats, loading, refresh } = useAdminData() || {};
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [s, list] = await Promise.allSettled([adminApi.stats(), adminApi.listVendors()]);
-    if (s.status === 'fulfilled') setStats(s.value);
-    if (list.status === 'fulfilled') setRecent(list.value.slice(0, 8));
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Only accepted vendors belong on the dashboard; un-accepted invites live on the
+  // Vendors → Invited tab. Show the most recently accepted first.
+  const recent = (vendors || [])
+    .filter((v) => v.accepted)
+    .sort((a, b) => new Date(b.accepted_at || 0) - new Date(a.accepted_at || 0))
+    .slice(0, 8);
 
   return (
     <div className="space-y-6">
@@ -62,11 +54,14 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Overview of your vendor base.</p>
         </div>
-        {user?.role === 'admin' && <InviteVendorDialog onInvited={load} />}
+        {user?.role === 'admin' && <InviteVendorDialog onInvited={refresh} />}
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard icon={Users} label="Total vendors" value={stats?.total} tone="primary" loading={loading} />
+        <Link href="/vendoradmin/vendors?tab=invited" className="contents">
+          <StatCard icon={MailPlus} label="Invited" value={stats?.invited} tone="default" loading={loading} />
+        </Link>
         <StatCard icon={CheckCircle2} label="Active" value={stats?.active} tone="success" loading={loading} />
         <StatCard icon={Clock} label="Pending" value={stats?.pending} tone="warning" loading={loading} />
         <StatCard icon={Ban} label="Suspended" value={stats?.suspended} tone="danger" loading={loading} />

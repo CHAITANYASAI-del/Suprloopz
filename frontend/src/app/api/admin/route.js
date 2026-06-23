@@ -49,15 +49,19 @@ async function inviteOneVendor(rawEmail) {
 }
 
 async function listVendors() {
-  const [profiles, vps, comps, oss] = await Promise.all([
+  const [profiles, vps, comps, oss, authList] = await Promise.all([
     vendorAdmin.from('profiles').select('id,email,role,created_at').eq('role', 'vendor'),
     vendorAdmin.from('vendor_profiles').select('*'),
     vendorAdmin.from('companies').select('user_id,legal_name,trade_name,industry'),
     vendorAdmin.from('onboarding_status').select('*'),
+    vendorAdmin.auth.admin.listUsers({ perPage: 1000 }),
   ]);
   const vp = Object.fromEntries((vps.data || []).map((r) => [r.user_id, r]));
   const c = Object.fromEntries((comps.data || []).map((r) => [r.user_id, r]));
   const o = Object.fromEntries((oss.data || []).map((r) => [r.user_id, r]));
+  // Auth gives us the signal for "accepted": a vendor who has signed in at least
+  // once (last_sign_in_at) has opened their invite. invited_at = account creation.
+  const au = Object.fromEntries((authList?.data?.users || []).map((u) => [u.id, u]));
   return (profiles.data || []).map((p) => ({
     // Spread the joined rows first, then force the identity fields last so the
     // vendor_profiles / onboarding_status `id` and `user_id` columns can't clobber
@@ -66,6 +70,9 @@ async function listVendors() {
     ...(o[p.id] || {}),
     legal_name: c[p.id]?.legal_name, trade_name: c[p.id]?.trade_name, industry: c[p.id]?.industry,
     email: p.email,
+    invited_at: au[p.id]?.created_at || p.created_at,
+    accepted_at: au[p.id]?.last_sign_in_at || null,
+    accepted: !!au[p.id]?.last_sign_in_at,
     created_at: p.created_at,
     id: p.id,
   }));
@@ -84,12 +91,16 @@ export async function POST(req) {
       case 'list': {
         const vendors = await listVendors();
         const docs = await vendorAdmin.from('legal_documents').select('verified,file_path');
+        // Only accepted vendors count toward the working stats; un-accepted invites
+        // are tracked separately so they don't pollute the "pending" approval count.
+        const accepted = vendors.filter((v) => v.accepted);
         const stats = {
-          total: vendors.length,
-          active: vendors.filter((v) => v.status === 'active').length,
-          pending: vendors.filter((v) => !v.status || v.status === 'pending').length,
-          suspended: vendors.filter((v) => v.status === 'suspended').length,
-          fully_onboarded: vendors.filter((v) => v.fully_onboarded).length,
+          total: accepted.length,
+          invited: vendors.length - accepted.length,
+          active: accepted.filter((v) => v.status === 'active').length,
+          pending: accepted.filter((v) => !v.status || v.status === 'pending').length,
+          suspended: accepted.filter((v) => v.status === 'suspended').length,
+          fully_onboarded: accepted.filter((v) => v.fully_onboarded).length,
           pending_doc_reviews: (docs.data || []).filter((d) => !d.verified && d.file_path).length,
         };
         return ok({ vendors, stats });
@@ -152,6 +163,33 @@ export async function POST(req) {
         const results = [];
         for (const e of emails) results.push(await inviteOneVendor(e));
         return ok({ results });
+      }
+      case 'resendInvite': {
+        // Regenerate a temp password for an existing (un-accepted) invite and re-email.
+        const userId = body.userId;
+        if (!userId) return err('userId is required');
+        const { data: got, error: getErr } = await vendorAdmin.auth.admin.getUserById(userId);
+        if (getErr || !got?.user) return err('Invite not found', 404);
+        const email = got.user.email;
+        const tempPassword = generateTempPassword();
+        const { error: upErr } = await vendorAdmin.auth.admin.updateUserById(userId, { password: tempPassword });
+        if (upErr) return err(upErr.message, 500);
+        const activateUrl =
+          `${siteUrl}/vendor/activate?email=${encodeURIComponent(email)}&tp=${encodeURIComponent(tempPassword)}`;
+        try {
+          await sendVendorInviteEmail({ to: email, tempPassword, activateUrl });
+        } catch (e) {
+          return err(`Could not resend the invite email: ${e.message}`, 502);
+        }
+        return ok({ ok: true, email });
+      }
+      case 'deleteVendor': {
+        // Hard-delete the vendor account; the DB cascade removes all their rows
+        // (profile, company, onboarding, documents, addresses) automatically.
+        if (!body.userId) return err('userId is required');
+        const { error } = await vendorAdmin.auth.admin.deleteUser(body.userId);
+        if (error) return err(error.message, 500);
+        return ok({ ok: true });
       }
       default:
         return err('Unknown action');
