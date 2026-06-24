@@ -1,5 +1,5 @@
 'use client';
-// Portal-aware auth. The admin portal (/vendoradmin) authenticates against the
+// Portal-aware auth. The admin portal (/admin) authenticates against the
 // STAFF Supabase project; everything else uses the VENDOR project. The two
 // sessions are fully independent, so the same email can be a staff member and a
 // vendor at the same time.
@@ -12,7 +12,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const pathname = usePathname() || '';
-  const isAdmin = pathname.startsWith('/vendoradmin');
+  const isAdmin = pathname.startsWith('/admin');
   const client = isAdmin ? supabaseStaff : supabase;
 
   const [session, setSession] = useState(null);
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     await client.auth.signOut();
     setSession(null);
-    router.push(isAdmin ? '/vendoradmin/login' : '/vendor/login');
+    router.push(isAdmin ? '/admin/login' : '/vendor/login');
   };
 
   const user = useMemo(() => {

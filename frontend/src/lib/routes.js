@@ -1,9 +1,9 @@
 // Single source of truth for app routes. Both portals live under path prefixes
 // on one domain so it deploys to a single Vercel project:
 //   /vendor/*       → vendor / consumer portal
-//   /vendoradmin/*  → staff / company admin portal
+//   /admin/*  → staff / company admin portal
 export const VENDOR_PREFIX = '/vendor';
-export const ADMIN_PREFIX = '/vendoradmin';
+export const ADMIN_PREFIX = '/admin';
 
 export const routes = {
   // vendor portal

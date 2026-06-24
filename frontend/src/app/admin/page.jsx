@@ -81,7 +81,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard icon={Users} label="Total vendors" value={stats?.total} tone="primary" loading={loading} />
-        <Link href="/vendoradmin/vendors?tab=invited" className="contents">
+        <Link href="/admin/vendors?tab=invited" className="contents">
           <StatCard icon={MailPlus} label="Invited" value={stats?.invited} tone="default" loading={loading} />
         </Link>
         <StatCard icon={CheckCircle2} label="Active" value={stats?.active} tone="success" loading={loading} />
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
                   </TableRow>
                 ) : (
                   recentActive.map((v) => (
-                    <TableRow key={v.id} className="cursor-pointer" onClick={() => router.push(`/vendoradmin/vendors/${v.id}`)}>
+                    <TableRow key={v.id} className="cursor-pointer" onClick={() => router.push(`/admin/vendors/${v.id}`)}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar name={vendorName(v)} email={v.email} />
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
             </Table>
           )}
           <div className="flex justify-center border-t p-3">
-            <Link href={`/vendoradmin/vendors?tab=${tab}`}>
+            <Link href={`/admin/vendors?tab=${tab}`}>
               <Button variant="ghost" size="sm">
                 View all {tab === 'active' ? 'vendors' : 'invited'} <ArrowRight className="h-4 w-4" />
               </Button>

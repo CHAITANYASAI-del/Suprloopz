@@ -7,7 +7,7 @@ export function isAdminPath(pathname) {
   return (pathname || '').startsWith(ADMIN_PREFIX);
 }
 
-/** Hook: 'admin' when under /vendoradmin, otherwise 'vendor'. */
+/** Hook: 'admin' when under /admin, otherwise 'vendor'. */
 export function usePortal() {
   return isAdminPath(usePathname()) ? 'admin' : 'vendor';
 }

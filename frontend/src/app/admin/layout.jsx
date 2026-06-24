@@ -16,7 +16,7 @@ const NAV = [
 ];
 
 // Guards the admin panel to admin + support roles, with a top subnav.
-// The login + OIDC-callback routes live under /vendoradmin too, so they bypass
+// The login + OIDC-callback routes live under /admin too, so they bypass
 // the guard (otherwise an unauthenticated user would redirect-loop).
 export default function AdminLayout({ children }) {
   const { ready, isAuthenticated, user } = useAuth();

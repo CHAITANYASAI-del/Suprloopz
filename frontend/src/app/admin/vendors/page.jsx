@@ -110,7 +110,7 @@ export default function VendorsPage() {
           setSearch={setSearch}
           status={status}
           setStatus={setStatus}
-          onOpen={(id) => router.push(`/vendoradmin/vendors/${id}`)}
+          onOpen={(id) => router.push(`/admin/vendors/${id}`)}
         />
       ) : (
         <InvitedTab rows={invited} loading={loading} isAdmin={isAdmin} />

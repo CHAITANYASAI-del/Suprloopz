@@ -6,8 +6,8 @@ const REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'superloopz';
 const CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'superloopz-web';
 
 const authBase = `${KC_URL}/realms/${REALM}/protocol/openid-connect`;
-// Staff portal OIDC callback lives under the /vendoradmin path prefix.
-const redirectUri = () => `${window.location.origin}/vendoradmin/auth/callback`;
+// Staff portal OIDC callback lives under the /admin path prefix.
+const redirectUri = () => `${window.location.origin}/admin/auth/callback`;
 
 function base64url(bytes) {
   let bin = '';
