@@ -2,7 +2,7 @@
 //   node scripts/resend-verify.mjs <key> [test-recipient]
 const key = process.argv[2];
 const to = process.argv[3];
-const FROM = 'SuperLoopz <support@suprloopz.com>';
+const FROM = 'Suprloopz <support@suprloopz.com>';
 const H = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 
 // 1) Which domains does this key's account have, and are they verified?

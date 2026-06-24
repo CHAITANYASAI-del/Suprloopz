@@ -1,124 +1,122 @@
-# SuperLoopz — Vendor Onboarding
+# Suprloopz — Vendor Onboarding
 
-Multi-tenant B2B vendor onboarding for **SuperLoopz**, the universal AI-native
-commerce operating system. Built to the exact stack in
-`SuperLoopz_Complete_Tech_Stack_v4.docx` — every service self-hosted and free,
-designed to run on the Oracle Cloud Always-Free VPS via Coolify.
+Multi-tenant B2B vendor onboarding for **Suprloopz**. Internal **staff** invite
+**vendors**; each vendor signs in with a temporary password, sets their own, and
+completes a guided onboarding (**Profile → Company → Legal documents → Address**).
+Staff review every vendor's data and documents and manage their status.
 
-| Layer | Tool | Where |
-|------|------|------|
-| Auth | Keycloak (OIDC/JWT) | self-hosted (Docker) |
-| Database | PostgreSQL 16 + Row Level Security | self-hosted (Docker) |
-| Cache / rate limit / idempotency | Redis 7 | self-hosted (Docker) |
-| Legal doc storage | MinIO (S3-compatible) | self-hosted (Docker) |
-| Public asset storage | Cloudflare R2 (S3-compatible) | managed |
-| Backend API | Node.js + Express | Docker |
-| Frontend | Next.js + **Orbit DS** (shadcn/ui + Tailwind) | Docker |
-| Email | Resend (5 transactional templates) | managed |
-| Admin panel | Retool (PostgreSQL + Keycloak) — plus this repo's `/admin` UI | managed |
+**Live:** https://suprloopz.com
+- `/` → landing placeholder ("coming soon")
+- `/admin` → staff / company admin portal
+- `/vendor` → vendor portal
+
+## Stack
+
+| Layer | Tool |
+|------|------|
+| Frontend + server routes | **Next.js 14 (App Router)** on **Vercel** |
+| UI | Tailwind + shadcn/ui (Orbit DS) |
+| Auth + Database + Storage | **Supabase** (managed) — two separate projects |
+| Email | **Resend** (sends from `support@suprloopz.com`) |
+| Domain | `suprloopz.com` (GoDaddy DNS → Vercel) |
+
+> The app is **serverless / $0-host**: Vercel for the app, Supabase managed for
+> auth/DB/storage, Resend for email. No servers to run.
+
+### Two fully separate systems
+Staff and vendors are **independent account sets in two different Supabase
+projects**, so the same email can be both a staff member and a vendor with no
+collision.
+
+- **Vendor project** — vendor auth + all vendor data + the `legal-docs` storage
+  bucket. The `/vendor` portal authenticates here.
+- **Staff project** — staff auth only (no tables). The `/admin` portal
+  authenticates here; every account in it is staff by definition.
+- The admin app reads/writes vendor data through the server route
+  **`/api/admin`** using the vendor service key (bypasses RLS), gated by
+  verifying the caller is a real staff user in the staff project.
 
 ## Repository layout
 
 ```
 .
-├── docker-compose.yml         # full local stack
-├── .env.example               # all environment variables (copy to .env)
-├── infra/
-│   ├── postgres/init/         # creates the Keycloak database on first boot
-│   └── keycloak/realm-export.json   # realm, roles (vendor/admin/support), clients
-├── backend/                   # Node.js + Express API
-│   ├── migrations/001_init.sql      # schema + RLS policies
-│   └── src/
-│       ├── config, db, redis, keycloak, storage, email
-│       ├── middleware/        # auth (JWT), rateLimit, idempotency, validate, upload
-│       ├── validation/        # zod schemas
-│       └── routes/            # auth, admin, onboarding, vendor, files
-└── frontend/                  # Next.js App Router
-    └── src/
-        ├── components/ui/      # Orbit/shadcn primitives
-        ├── lib/                # api client, auth context, dropdown options
-        └── app/                # login, reset-password, onboarding/*, dashboard, admin/*
+├── frontend/                       # the live app (Next.js) — everything runs here
+│   ├── src/app/
+│   │   ├── page.jsx                # "/" coming-soon placeholder
+│   │   ├── admin/                  # staff portal (dashboard, vendors, login, set-password)
+│   │   ├── vendor/                 # vendor portal (activate, reset-password, onboarding/*)
+│   │   └── api/admin/route.js      # server admin API (list/get/invite/resend/delete/verify docs/signed URLs)
+│   ├── src/lib/                    # supabase (vendor + staff) clients, serverSupabase, adminApi,
+│   │   │                           #   auth context, adminData (notifications), email, routes
+│   ├── src/components/admin/       # invite dialog, invited actions, notifications (bell + toasts)
+│   └── scripts/*.mjs               # one-off admin utilities (list/delete/mark users, inspect vendor, resend probes)
+├── supabase/schema.sql             # vendor project: tables, RLS, handle_new_user trigger, legal-docs bucket
+└── (legacy) backend/ infra/ deploy/ docker-compose.yml
+                                    # ABANDONED self-hosted Keycloak/Postgres/MinIO/Oracle stack — not used
 ```
 
-## Quick start (local, Docker)
+## The flows
+
+### Adding a staff member
+1. Add the person in the **staff Supabase project** → Authentication → **Send invitation**.
+2. They get an email → click the link → land on `/admin/set-password` → set a password → enter the admin dashboard.
+3. Returning staff sign in at `/admin/login`.
+
+### Inviting a vendor (from the admin app)
+1. Admin → **Invite vendor** → enter one or many emails.
+2. The server creates each vendor account with a **generated temporary password** and emails it (via Resend) with an **activation link**.
+3. Vendor clicks the link → `/vendor/activate` validates it and signs them in → `/vendor/reset-password` to set their own password → onboarding.
+4. **Acceptance** = the vendor's first sign-in. Un-accepted invites live under **Vendors → Invited** (with **Resend** / **Revoke**); accepted ones move to **Active vendors**.
+5. Admin reviews profile, company, legal documents (in-app PDF viewer with signed URLs), addresses; verifies/rejects documents; sets status (Active / Pending / Suspended). A **notification bell + toasts** announce when a vendor accepts.
+
+## Local development
 
 ```bash
-cp .env.example .env           # adjust secrets as needed
-docker compose up -d --build   # postgres, redis, keycloak, minio, backend, frontend
+cd frontend
+npm install
+npm run dev            # http://localhost:3001
 ```
 
-Then, once Keycloak is healthy, seed an admin so you can send invites:
-
-```bash
-docker compose exec backend npm run seed
-# → creates admin@superloopz.com / SuperLoopzAdmin#1  (override via SEED_ADMIN_* env)
-```
-
-Services:
-
-| URL | What |
-|-----|------|
-| http://localhost:3001 | Frontend (Next.js) |
-| http://localhost:3000/health | Backend API health |
-| http://localhost:8080 | Keycloak admin console (`admin` / `admin`) |
-| http://localhost:9001 | MinIO console |
-
-> The backend container runs migrations automatically on start
-> (`node src/db/migrate.js`). To run them manually: `docker compose exec backend npm run migrate`.
-
-## Running the apps without Docker
-
-```bash
-# Backend (needs Postgres, Redis, Keycloak, MinIO reachable per .env)
-cd backend && npm install && npm run migrate && npm run dev
-
-# Frontend
-cd frontend && npm install && npm run dev   # http://localhost:3000
-```
-
-## The onboarding flow
-
-1. **Admin invites** — `POST /api/admin/vendors/invite` creates the user in
-   Keycloak with a temporary password + forced `UPDATE_PASSWORD`, writes the
-   `users` row, and emails the invite via Resend.
-2. **Login** — vendor signs in; Keycloak reports the pending password update, so
-   the API returns `passwordResetRequired` and the UI routes to `/reset-password`.
-3. **Reset password** — min 12 chars, a digit and a special char; Keycloak
-   clears the required action and the vendor is logged straight in.
-4. **Profile** → **Company** → **Legal (GST/PAN/CIN to MinIO)** → **Address** —
-   each step persists and advances `onboarding_status`. Completing the address
-   step flips `fully_onboarded`, activates the vendor, and sends the welcome email.
-5. **Support/Admin** review everything at `/admin/vendors` and can verify/reject
-   documents (which emails the vendor).
-
-## Security (as specified)
-
-- **Row Level Security on every table.** Each request opens a transaction and
-  sets `app.current_user_id` + `app.user_role`; policies (with `FORCE ROW LEVEL
-  SECURITY`) ensure a vendor can only ever touch their own rows. See
-  `backend/migrations/001_init.sql` and `backend/src/db/pool.js`.
-- **Passwords live only in Keycloak** — never in PostgreSQL.
-- **JWT** verified against the realm JWKS; 15-min access tokens with refresh
-  rotation (`revokeRefreshToken` + `refreshTokenMaxReuse: 0`).
-- **Rate limiting** (Redis sliding window) on the whole `/api` surface, tighter
-  on auth routes.
-- **Idempotency keys** on invite + onboarding completion (Redis-backed replay).
-- **Input validation + sanitization** via zod on every endpoint.
-- **Parameterized queries only** — no string-concatenated SQL.
-- **Signed-URL-only file access** — no public buckets; legal docs server-side
-  encrypted in MinIO under `legal/{user_id}/{doc_type}/{filename}`.
-- **Uploads** capped at 5MB, restricted to PNG/JPEG/PDF.
+Requires `frontend/.env.local` (gitignored) with the vars below.
 
 ## Environment variables
 
-See `.env.example` — it is the single source of truth and documents every
-variable (database, Redis, Keycloak, MinIO, Cloudflare R2, Resend, JWT, CORS,
-rate limits, frontend API URL).
+```
+# Vendor Supabase project
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SECRET_KEY            # server-only
 
-## Deploying on Oracle Cloud + Coolify
+# Staff Supabase project
+NEXT_PUBLIC_STAFF_SUPABASE_URL
+NEXT_PUBLIC_STAFF_SUPABASE_ANON_KEY
+STAFF_SUPABASE_SECRET_KEY     # server-only
 
-This `docker-compose.yml` maps 1:1 onto Coolify resources. Deploy
-PostgreSQL/Redis/Keycloak/MinIO as Coolify services, point the backend and
-frontend at them via Coolify environment variables, and front everything with
-Cloudflare for HTTPS/CDN/DDoS. R2 + Resend are managed and reached over the
-public internet with the credentials in `.env`.
+# App + email
+NEXT_PUBLIC_SITE_URL          # https://suprloopz.com
+RESEND_API_KEY                # server-only
+RESEND_FROM_EMAIL             # Suprloopz <support@suprloopz.com>
+```
+
+Set the same values in **Vercel → Settings → Environment Variables** (Production +
+Preview), and **redeploy** after any change.
+
+## Supabase setup
+
+1. Run `supabase/schema.sql` in the **vendor** project's SQL editor (tables, RLS,
+   `handle_new_user` trigger, `legal-docs` storage bucket).
+2. **Auth → URL Configuration** on each project:
+   - Staff: Site URL `https://suprloopz.com/admin/set-password`, Redirect URLs `https://suprloopz.com/**`
+   - Vendor: Site URL `https://suprloopz.com/vendor`, Redirect URLs `https://suprloopz.com/**`
+3. Disable public sign-ups on both (accounts are invite/dashboard-created). Auth
+   uses the **implicit** flow so server-generated invite/recovery links work.
+
+## Email (Resend)
+
+`suprloopz.com` is verified in Resend (SPF/DKIM/DMARC via GoDaddy), so invite
+emails deliver to any recipient from `Suprloopz <support@suprloopz.com>`.
+
+## Deployment
+
+Push to `main` → Vercel auto-builds and deploys `frontend/` to `suprloopz.com`.
+Nothing else to deploy (Supabase + Resend are managed).
