@@ -32,6 +32,26 @@ export function requiredText(v, label, min = 2) {
   return '';
 }
 
+// Company / trade names: letters, digits, spaces and common business punctuation.
+// Must start with a letter or digit and contain at least one letter.
+const COMPANY_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 &.,'()/-]{1,99}$/;
+export function companyNameError(v, label = 'Name', { required = true } = {}) {
+  const val = trim(v);
+  if (!val) return required ? `${label} is required` : '';
+  if (val.length < 2) return `${label} is too short`;
+  if (!/[A-Za-z]/.test(val)) return `${label} must contain letters`;
+  if (!COMPANY_NAME_RE.test(val)) return `${label} contains invalid characters`;
+  return '';
+}
+
+// Registration number: alphanumeric with - / and spaces only.
+export function regNumberError(v, { required = false } = {}) {
+  const val = trim(v);
+  if (!val) return required ? 'Registration number is required' : '';
+  if (!/^[A-Za-z0-9 /-]{3,30}$/.test(val)) return 'Use letters, digits, spaces, - or / only';
+  return '';
+}
+
 export function placeError(v, label) {
   const val = trim(v);
   if (!val) return `${label} is required`;

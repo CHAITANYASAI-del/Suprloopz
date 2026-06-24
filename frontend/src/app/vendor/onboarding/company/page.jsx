@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   INDUSTRIES, VENDOR_TYPES, VENDOR_CATEGORIES, YEARS_IN_BUSINESS, EMPLOYEE_RANGES, TURNOVER_RANGES,
 } from '@/lib/options';
-import { requiredText, emailError, urlError, pastDateError } from '@/lib/validators';
+import { companyNameError, regNumberError, emailError, urlError, pastDateError } from '@/lib/validators';
 
 const initial = {
   legalName: '', tradeName: '', registrationNumber: '', incorporationDate: '',
@@ -51,8 +51,12 @@ export default function CompanyPage() {
 
   const validate = () => {
     const e = {};
-    const ln = requiredText(form.legalName, 'Legal entity name');
+    const ln = companyNameError(form.legalName, 'Legal entity name');
     if (ln) e.legalName = ln;
+    const tn = companyNameError(form.tradeName, 'Trade name', { required: false });
+    if (tn) e.tradeName = tn;
+    const reg = regNumberError(form.registrationNumber);
+    if (reg) e.registrationNumber = reg;
     const em = emailError(form.companyEmail);
     if (em) e.companyEmail = em;
     const web = urlError(form.website);
@@ -98,11 +102,11 @@ export default function CompanyPage() {
             <Field label="Legal entity name" htmlFor="legalName" error={errors.legalName} required className="sm:col-span-2">
               <Input id="legalName" value={form.legalName} onChange={set('legalName')} aria-invalid={!!errors.legalName} />
             </Field>
-            <Field label="Trade name" htmlFor="tradeName">
-              <Input id="tradeName" value={form.tradeName} onChange={set('tradeName')} />
+            <Field label="Trade name" htmlFor="tradeName" error={errors.tradeName}>
+              <Input id="tradeName" value={form.tradeName} onChange={set('tradeName')} aria-invalid={!!errors.tradeName} />
             </Field>
-            <Field label="Registration number" htmlFor="registrationNumber">
-              <Input id="registrationNumber" value={form.registrationNumber} onChange={set('registrationNumber')} />
+            <Field label="Registration number" htmlFor="registrationNumber" error={errors.registrationNumber}>
+              <Input id="registrationNumber" value={form.registrationNumber} onChange={set('registrationNumber')} aria-invalid={!!errors.registrationNumber} />
             </Field>
             <Field label="Date of incorporation" htmlFor="incorporationDate" error={errors.incorporationDate}>
               <Input id="incorporationDate" type="date" max={new Date().toISOString().slice(0, 10)}

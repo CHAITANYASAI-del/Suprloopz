@@ -1,5 +1,5 @@
 // Sanity-check the validators against known-good / known-bad values.
-import { docNumberError, phoneError, pinError, emailError, urlError, pastDateError } from '../src/lib/validators.js';
+import { docNumberError, phoneError, pinError, emailError, urlError, pastDateError, companyNameError, regNumberError } from '../src/lib/validators.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log('  ✗', label); } };
@@ -36,6 +36,15 @@ invalid(urlError('suprloopz'), 'url bare');
 valid(urlError(''), 'url empty (optional)');
 invalid(pastDateError('2999-01-01'), 'date future');
 valid(pastDateError('2020-01-01'), 'date past');
+// Company name / registration number
+valid(companyNameError('Acme Pvt Ltd', 'Legal entity name'), 'company Acme Pvt Ltd');
+valid(companyNameError("O'Brien & Co.", 'Legal entity name'), 'company O\'Brien & Co.');
+invalid(companyNameError('@@@', 'Legal entity name'), 'company symbols only');
+invalid(companyNameError('A', 'Legal entity name'), 'company too short');
+valid(companyNameError('', 'Trade name', { required: false }), 'trade name optional empty');
+valid(regNumberError('U72200KA2020'), 'reg alnum');
+invalid(regNumberError('sfmfnb;bzfgjnkff'), 'reg with semicolon');
+valid(regNumberError('', { required: false }), 'reg optional empty');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
