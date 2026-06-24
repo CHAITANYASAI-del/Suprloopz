@@ -21,9 +21,9 @@ const initial = {
   yearsInBusiness: '', numberOfEmployees: '', annualTurnover: '', website: '', companySpeciality: '',
 };
 
-function SelectField({ label, value, onChange, options, placeholder, error }) {
+function SelectField({ label, value, onChange, options, placeholder, error, required }) {
   return (
-    <Field label={label} error={error}>
+    <Field label={label} error={error} required={required}>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger>
           <SelectValue placeholder={placeholder || 'Select…'} />
@@ -49,20 +49,28 @@ export default function CompanyPage() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
 
+  // Everything is required except Website and Company speciality (marked optional).
   const validate = () => {
     const e = {};
     const ln = companyNameError(form.legalName, 'Legal entity name');
     if (ln) e.legalName = ln;
-    const tn = companyNameError(form.tradeName, 'Trade name', { required: false });
+    const tn = companyNameError(form.tradeName, 'Trade name');
     if (tn) e.tradeName = tn;
-    const reg = regNumberError(form.registrationNumber);
+    const reg = regNumberError(form.registrationNumber, { required: true });
     if (reg) e.registrationNumber = reg;
-    const em = emailError(form.companyEmail);
-    if (em) e.companyEmail = em;
-    const web = urlError(form.website);
-    if (web) e.website = web;
-    const inc = pastDateError(form.incorporationDate);
+    const inc = pastDateError(form.incorporationDate, { required: true });
     if (inc) e.incorporationDate = inc;
+    const em = emailError(form.companyEmail, true);
+    if (em) e.companyEmail = em;
+    for (const [k, label] of [
+      ['industry', 'Industry'], ['vendorType', 'Vendor type'], ['vendorCategory', 'Vendor category'],
+      ['yearsInBusiness', 'Years in business'], ['numberOfEmployees', 'Number of employees'],
+      ['annualTurnover', 'Annual turnover'],
+    ]) {
+      if (!form[k]) e[k] = `${label} is required`;
+    }
+    const web = urlError(form.website); // optional, format-checked if present
+    if (web) e.website = web;
     return e;
   };
 
@@ -102,31 +110,31 @@ export default function CompanyPage() {
             <Field label="Legal entity name" htmlFor="legalName" error={errors.legalName} required className="sm:col-span-2">
               <Input id="legalName" value={form.legalName} onChange={set('legalName')} aria-invalid={!!errors.legalName} />
             </Field>
-            <Field label="Trade name" htmlFor="tradeName" error={errors.tradeName}>
+            <Field label="Trade name" htmlFor="tradeName" error={errors.tradeName} required>
               <Input id="tradeName" value={form.tradeName} onChange={set('tradeName')} aria-invalid={!!errors.tradeName} />
             </Field>
-            <Field label="Registration number" htmlFor="registrationNumber" error={errors.registrationNumber}>
+            <Field label="Registration number" htmlFor="registrationNumber" error={errors.registrationNumber} required>
               <Input id="registrationNumber" value={form.registrationNumber} onChange={set('registrationNumber')} aria-invalid={!!errors.registrationNumber} />
             </Field>
-            <Field label="Date of incorporation" htmlFor="incorporationDate" error={errors.incorporationDate}>
+            <Field label="Date of incorporation" htmlFor="incorporationDate" error={errors.incorporationDate} required>
               <Input id="incorporationDate" type="date" max={new Date().toISOString().slice(0, 10)}
                 value={form.incorporationDate} onChange={set('incorporationDate')} aria-invalid={!!errors.incorporationDate} />
             </Field>
-            <SelectField label="Industry" value={form.industry} onChange={set('industry')} options={INDUSTRIES} />
-            <Field label="Company email" htmlFor="companyEmail" error={errors.companyEmail}>
+            <SelectField label="Industry" value={form.industry} onChange={set('industry')} options={INDUSTRIES} error={errors.industry} required />
+            <Field label="Company email" htmlFor="companyEmail" error={errors.companyEmail} required>
               <Input id="companyEmail" type="email" value={form.companyEmail} onChange={set('companyEmail')} aria-invalid={!!errors.companyEmail} />
             </Field>
-            <SelectField label="Vendor type" value={form.vendorType} onChange={set('vendorType')} options={VENDOR_TYPES} />
-            <SelectField label="Vendor category" value={form.vendorCategory} onChange={set('vendorCategory')} options={VENDOR_CATEGORIES} />
-            <SelectField label="Years in business" value={form.yearsInBusiness} onChange={set('yearsInBusiness')} options={YEARS_IN_BUSINESS} />
-            <SelectField label="Number of employees" value={form.numberOfEmployees} onChange={set('numberOfEmployees')} options={EMPLOYEE_RANGES} />
-            <SelectField label="Annual turnover" value={form.annualTurnover} onChange={set('annualTurnover')} options={TURNOVER_RANGES} />
-            <Field label="Website" htmlFor="website" error={errors.website}>
+            <SelectField label="Vendor type" value={form.vendorType} onChange={set('vendorType')} options={VENDOR_TYPES} error={errors.vendorType} required />
+            <SelectField label="Vendor category" value={form.vendorCategory} onChange={set('vendorCategory')} options={VENDOR_CATEGORIES} error={errors.vendorCategory} required />
+            <SelectField label="Years in business" value={form.yearsInBusiness} onChange={set('yearsInBusiness')} options={YEARS_IN_BUSINESS} error={errors.yearsInBusiness} required />
+            <SelectField label="Number of employees" value={form.numberOfEmployees} onChange={set('numberOfEmployees')} options={EMPLOYEE_RANGES} error={errors.numberOfEmployees} required />
+            <SelectField label="Annual turnover" value={form.annualTurnover} onChange={set('annualTurnover')} options={TURNOVER_RANGES} error={errors.annualTurnover} required />
+            <Field label="Website (optional)" htmlFor="website" error={errors.website}>
               <Input id="website" placeholder="https://example.com" value={form.website} onChange={set('website')} aria-invalid={!!errors.website} />
             </Field>
           </div>
 
-          <Field label="Company speciality" htmlFor="companySpeciality">
+          <Field label="Company speciality (optional)" htmlFor="companySpeciality">
             <Textarea
               id="companySpeciality"
               placeholder="What does your company specialise in?"
