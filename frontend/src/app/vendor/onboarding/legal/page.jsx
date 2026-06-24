@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldCheck, Check } from 'lucide-react';
 import { db } from '@/lib/db';
+import { verifyDocument } from '@/lib/verifyApi';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,10 @@ const DOC_TYPES = [
   { type: 'CIN', title: 'CIN', nameLabel: 'Name on CIN', numberLabel: 'CIN number', placeholder: 'U72200KA2020PTC123456' },
 ];
 
-const blank = () => ({ docName: '', docNumber: '', fileKey: '', uploading: false, error: '' });
+const blank = () => ({
+  docName: '', docNumber: '', fileKey: '', uploading: false, error: '',
+  verified: false, verifying: false, verifiedName: '', verifyMsg: '',
+});
 
 export default function LegalPage() {
   const router = useRouter();
@@ -39,6 +43,25 @@ export default function LegalPage() {
     }
   };
 
+  // Verify a number against the official registry via Cashfree.
+  const verify = async (type) => {
+    const d = docs[type];
+    const fmt = docNumberError(type, d.docNumber);
+    if (fmt) {
+      setErrors((er) => ({ ...er, [`${type}.docNumber`]: fmt }));
+      return;
+    }
+    setErrors((er) => ({ ...er, [`${type}.docNumber`]: undefined }));
+    update(type, { verifying: true, verifyMsg: '', verified: false, verifiedName: '' });
+    try {
+      const r = await verifyDocument(type, d.docNumber, d.docName);
+      if (r.valid) update(type, { verifying: false, verified: true, verifiedName: r.name || '' });
+      else update(type, { verifying: false, verifyMsg: r.message || `This ${type} could not be verified` });
+    } catch (e) {
+      update(type, { verifying: false, verifyMsg: e.message || 'Verification failed. Please try again.' });
+    }
+  };
+
   const validate = () => {
     const e = {};
     for (const { type } of DOC_TYPES) {
@@ -47,6 +70,7 @@ export default function LegalPage() {
       if (nm) e[`${type}.docName`] = nm;
       const num = docNumberError(type, d.docNumber);
       if (num) e[`${type}.docNumber`] = num;
+      else if (!d.verified) e[`${type}.docNumber`] = `Click Verify to confirm this ${type}`;
       if (!d.fileKey) e[`${type}.file`] = 'Upload a document';
     }
     return e;
@@ -77,12 +101,15 @@ export default function LegalPage() {
     }
   };
 
+  const allVerified = DOC_TYPES.every(({ type }) => docs[type].verified);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Legal information</CardTitle>
         <CardDescription>
-          Upload your statutory documents. Stored securely on-premise — access is via signed links only.
+          Enter and <strong>verify</strong> your statutory IDs, then upload each certificate.
+          Numbers are checked instantly against the official registry.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -93,50 +120,93 @@ export default function LegalPage() {
             </Alert>
           )}
 
-          {DOC_TYPES.map(({ type, title, nameLabel, numberLabel, placeholder }) => (
-            <div key={type} className="rounded-lg border p-4">
-              <h3 className="mb-3 text-sm font-semibold">{title} details</h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label={nameLabel} error={errors[`${type}.docName`]} required>
-                  <Input
-                    value={docs[type].docName}
-                    onChange={(e) => update(type, { docName: e.target.value })}
-                    aria-invalid={!!errors[`${type}.docName`]}
-                  />
-                </Field>
-                <Field label={numberLabel} error={errors[`${type}.docNumber`]} required hint={`Format: ${placeholder}`}>
-                  <Input
-                    value={docs[type].docNumber}
-                    placeholder={placeholder}
-                    maxLength={MAXLEN[type]}
-                    className="uppercase"
-                    onChange={(e) => update(type, { docNumber: upper(e.target.value).slice(0, MAXLEN[type]) })}
-                    aria-invalid={!!errors[`${type}.docNumber`]}
-                  />
-                </Field>
+          {DOC_TYPES.map(({ type, title, nameLabel, numberLabel, placeholder }) => {
+            const d = docs[type];
+            return (
+              <div key={type} className="rounded-lg border p-4">
+                <h3 className="mb-3 text-sm font-semibold">{title} details</h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label={nameLabel} error={errors[`${type}.docName`]} required>
+                    <Input
+                      value={d.docName}
+                      onChange={(e) => update(type, { docName: e.target.value })}
+                      aria-invalid={!!errors[`${type}.docName`]}
+                    />
+                  </Field>
+                  <Field
+                    label={numberLabel}
+                    error={errors[`${type}.docNumber`]}
+                    required
+                    hint={!d.verified ? `Format: ${placeholder}` : undefined}
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        value={d.docNumber}
+                        placeholder={placeholder}
+                        maxLength={MAXLEN[type]}
+                        className="uppercase"
+                        onChange={(e) =>
+                          update(type, {
+                            docNumber: upper(e.target.value).slice(0, MAXLEN[type]),
+                            verified: false, verifiedName: '', verifyMsg: '',
+                          })
+                        }
+                        aria-invalid={!!errors[`${type}.docNumber`]}
+                      />
+                      <Button
+                        type="button"
+                        variant={d.verified ? 'outline' : 'default'}
+                        className="shrink-0"
+                        disabled={d.verifying || d.verified || !d.docNumber}
+                        onClick={() => verify(type)}
+                      >
+                        {d.verifying ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : d.verified ? (
+                          <>
+                            <Check className="h-4 w-4" /> Verified
+                          </>
+                        ) : (
+                          'Verify'
+                        )}
+                      </Button>
+                    </div>
+                    {d.verified && (
+                      <p className="mt-1 flex items-center gap-1 text-xs font-medium text-green-700">
+                        <ShieldCheck className="h-3.5 w-3.5" /> {d.verifiedName || 'Verified'}
+                      </p>
+                    )}
+                    {!d.verified && d.verifyMsg && (
+                      <p className="mt-1 text-xs font-medium text-destructive">{d.verifyMsg}</p>
+                    )}
+                  </Field>
+                </div>
+                <div className="mt-4">
+                  <Field label={`${title} certificate`} required>
+                    <FileDropzone
+                      onFile={(file) => handleFile(type, file)}
+                      uploading={d.uploading}
+                      uploaded={!!d.fileKey}
+                      error={d.error || errors[`${type}.file`]}
+                    />
+                  </Field>
+                </div>
               </div>
-              <div className="mt-4">
-                <Field label={`${title} certificate`} required>
-                  <FileDropzone
-                    onFile={(file) => handleFile(type, file)}
-                    uploading={docs[type].uploading}
-                    uploaded={!!docs[type].fileKey}
-                    error={docs[type].error || errors[`${type}.file`]}
-                  />
-                </Field>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
-          <div className="flex justify-between">
+          <div className="flex items-center justify-between">
             <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>
               Back
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !allVerified}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? 'Saving…' : 'Continue'}
             </Button>
           </div>
+          {!allVerified && (
+            <p className="text-right text-xs text-muted-foreground">Verify all three numbers to continue.</p>
+          )}
         </form>
       </CardContent>
     </Card>
