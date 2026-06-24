@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { FileDropzone } from '@/components/FileDropzone';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { docNumberError, requiredText, upper, MAXLEN } from '@/lib/validators';
 
 const DOC_TYPES = [
-  { type: 'GST', title: 'GST', nameLabel: 'Name on GST', numberLabel: 'GST number' },
-  { type: 'PAN', title: 'PAN', nameLabel: 'Name on PAN', numberLabel: 'PAN number' },
-  { type: 'CIN', title: 'CIN', nameLabel: 'Name on CIN', numberLabel: 'CIN number' },
+  { type: 'GST', title: 'GST', nameLabel: 'Name on GST', numberLabel: 'GST number', placeholder: '22ABCDE1234F1Z5' },
+  { type: 'PAN', title: 'PAN', nameLabel: 'Name on PAN', numberLabel: 'PAN number', placeholder: 'ABCDE1234F' },
+  { type: 'CIN', title: 'CIN', nameLabel: 'Name on CIN', numberLabel: 'CIN number', placeholder: 'U72200KA2020PTC123456' },
 ];
 
 const blank = () => ({ docName: '', docNumber: '', fileKey: '', uploading: false, error: '' });
@@ -42,8 +43,10 @@ export default function LegalPage() {
     const e = {};
     for (const { type } of DOC_TYPES) {
       const d = docs[type];
-      if (!d.docName.trim()) e[`${type}.docName`] = 'Required';
-      if (!d.docNumber.trim()) e[`${type}.docNumber`] = 'Required';
+      const nm = requiredText(d.docName, 'Name', 2);
+      if (nm) e[`${type}.docName`] = nm;
+      const num = docNumberError(type, d.docNumber);
+      if (num) e[`${type}.docNumber`] = num;
       if (!d.fileKey) e[`${type}.file`] = 'Upload a document';
     }
     return e;
@@ -90,7 +93,7 @@ export default function LegalPage() {
             </Alert>
           )}
 
-          {DOC_TYPES.map(({ type, title, nameLabel, numberLabel }) => (
+          {DOC_TYPES.map(({ type, title, nameLabel, numberLabel, placeholder }) => (
             <div key={type} className="rounded-lg border p-4">
               <h3 className="mb-3 text-sm font-semibold">{title} details</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -101,10 +104,13 @@ export default function LegalPage() {
                     aria-invalid={!!errors[`${type}.docName`]}
                   />
                 </Field>
-                <Field label={numberLabel} error={errors[`${type}.docNumber`]} required>
+                <Field label={numberLabel} error={errors[`${type}.docNumber`]} required hint={`Format: ${placeholder}`}>
                   <Input
                     value={docs[type].docNumber}
-                    onChange={(e) => update(type, { docNumber: e.target.value })}
+                    placeholder={placeholder}
+                    maxLength={MAXLEN[type]}
+                    className="uppercase"
+                    onChange={(e) => update(type, { docNumber: upper(e.target.value).slice(0, MAXLEN[type]) })}
                     aria-invalid={!!errors[`${type}.docNumber`]}
                   />
                 </Field>

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   INDUSTRIES, VENDOR_TYPES, VENDOR_CATEGORIES, YEARS_IN_BUSINESS, EMPLOYEE_RANGES, TURNOVER_RANGES,
 } from '@/lib/options';
+import { requiredText, emailError, urlError, pastDateError } from '@/lib/validators';
 
 const initial = {
   legalName: '', tradeName: '', registrationNumber: '', incorporationDate: '',
@@ -50,9 +51,14 @@ export default function CompanyPage() {
 
   const validate = () => {
     const e = {};
-    if (!form.legalName.trim()) e.legalName = 'Legal entity name is required';
-    if (form.companyEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.companyEmail))
-      e.companyEmail = 'Enter a valid email';
+    const ln = requiredText(form.legalName, 'Legal entity name');
+    if (ln) e.legalName = ln;
+    const em = emailError(form.companyEmail);
+    if (em) e.companyEmail = em;
+    const web = urlError(form.website);
+    if (web) e.website = web;
+    const inc = pastDateError(form.incorporationDate);
+    if (inc) e.incorporationDate = inc;
     return e;
   };
 
@@ -98,8 +104,9 @@ export default function CompanyPage() {
             <Field label="Registration number" htmlFor="registrationNumber">
               <Input id="registrationNumber" value={form.registrationNumber} onChange={set('registrationNumber')} />
             </Field>
-            <Field label="Date of incorporation" htmlFor="incorporationDate">
-              <Input id="incorporationDate" type="date" value={form.incorporationDate} onChange={set('incorporationDate')} />
+            <Field label="Date of incorporation" htmlFor="incorporationDate" error={errors.incorporationDate}>
+              <Input id="incorporationDate" type="date" max={new Date().toISOString().slice(0, 10)}
+                value={form.incorporationDate} onChange={set('incorporationDate')} aria-invalid={!!errors.incorporationDate} />
             </Field>
             <SelectField label="Industry" value={form.industry} onChange={set('industry')} options={INDUSTRIES} />
             <Field label="Company email" htmlFor="companyEmail" error={errors.companyEmail}>
@@ -110,8 +117,8 @@ export default function CompanyPage() {
             <SelectField label="Years in business" value={form.yearsInBusiness} onChange={set('yearsInBusiness')} options={YEARS_IN_BUSINESS} />
             <SelectField label="Number of employees" value={form.numberOfEmployees} onChange={set('numberOfEmployees')} options={EMPLOYEE_RANGES} />
             <SelectField label="Annual turnover" value={form.annualTurnover} onChange={set('annualTurnover')} options={TURNOVER_RANGES} />
-            <Field label="Website" htmlFor="website">
-              <Input id="website" placeholder="https://" value={form.website} onChange={set('website')} />
+            <Field label="Website" htmlFor="website" error={errors.website}>
+              <Input id="website" placeholder="https://example.com" value={form.website} onChange={set('website')} aria-invalid={!!errors.website} />
             </Field>
           </div>
 

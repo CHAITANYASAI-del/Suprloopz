@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { COUNTRY_CODES } from '@/lib/options';
+import { nameError, phoneError, digitsOnly, MAXLEN } from '@/lib/validators';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -21,12 +22,20 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
+  // Phone: keep only digits; cap at 10 for Indian numbers.
+  const setPhone = (e) => {
+    const max = form.countryCode === '+91' ? MAXLEN.phoneIN : 15;
+    setForm((f) => ({ ...f, phone: digitsOnly(e.target.value).slice(0, max) }));
+  };
 
   const validate = () => {
     const e = {};
-    if (!form.firstName.trim()) e.firstName = 'First name is required';
-    if (!form.lastName.trim()) e.lastName = 'Last name is required';
-    if (!/^[0-9]{6,15}$/.test(form.phone.trim())) e.phone = 'Enter a valid phone number';
+    const fn = nameError(form.firstName, 'First name');
+    if (fn) e.firstName = fn;
+    const ln = nameError(form.lastName, 'Last name');
+    if (ln) e.lastName = ln;
+    const ph = phoneError(form.countryCode, form.phone);
+    if (ph) e.phone = ph;
     return e;
   };
 
@@ -94,7 +103,8 @@ export default function ProfilePage() {
                 inputMode="numeric"
                 placeholder="9876543210"
                 value={form.phone}
-                onChange={set('phone')}
+                onChange={setPhone}
+                maxLength={form.countryCode === '+91' ? MAXLEN.phoneIN : 15}
                 aria-invalid={!!errors.phone}
               />
             </div>

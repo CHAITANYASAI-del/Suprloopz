@@ -12,11 +12,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { COUNTRIES } from '@/lib/options';
+import { requiredText, placeError, pinError, digitsOnly, MAXLEN } from '@/lib/validators';
 
 const blank = () => ({ streetAddress: '', city: '', state: '', postalCode: '', country: 'India' });
 
 function AddressFields({ value, onChange, errors = {}, prefix }) {
   const set = (k) => (e) => onChange({ ...value, [k]: e?.target ? e.target.value : e });
+  // Indian PIN codes are 6 digits — keep digits only and cap the length.
+  const setPostal = (e) => {
+    const raw = e.target.value;
+    const next = value.country === 'India' ? digitsOnly(raw).slice(0, MAXLEN.pinIN) : raw.slice(0, 12);
+    onChange({ ...value, postalCode: next });
+  };
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <Field label="Street address" error={errors[`${prefix}.streetAddress`]} required className="sm:col-span-2">
@@ -29,7 +36,14 @@ function AddressFields({ value, onChange, errors = {}, prefix }) {
         <Input value={value.state} onChange={set('state')} aria-invalid={!!errors[`${prefix}.state`]} />
       </Field>
       <Field label="Postal code" error={errors[`${prefix}.postalCode`]} required>
-        <Input value={value.postalCode} onChange={set('postalCode')} aria-invalid={!!errors[`${prefix}.postalCode`]} />
+        <Input
+          value={value.postalCode}
+          onChange={setPostal}
+          inputMode={value.country === 'India' ? 'numeric' : 'text'}
+          maxLength={value.country === 'India' ? MAXLEN.pinIN : 12}
+          placeholder={value.country === 'India' ? '560001' : ''}
+          aria-invalid={!!errors[`${prefix}.postalCode`]}
+        />
       </Field>
       <Field label="Country" error={errors[`${prefix}.country`]} required>
         <Select value={value.country} onValueChange={set('country')}>
@@ -60,9 +74,15 @@ export default function AddressPage() {
   const [loading, setLoading] = useState(false);
 
   const validateAddress = (a, prefix, e) => {
-    for (const k of ['streetAddress', 'city', 'state', 'postalCode', 'country']) {
-      if (!String(a[k] || '').trim()) e[`${prefix}.${k}`] = 'Required';
-    }
+    const s = requiredText(a.streetAddress, 'Street address', 3);
+    if (s) e[`${prefix}.streetAddress`] = s;
+    const c = placeError(a.city, 'City');
+    if (c) e[`${prefix}.city`] = c;
+    const st = placeError(a.state, 'State');
+    if (st) e[`${prefix}.state`] = st;
+    const p = pinError(a.country, a.postalCode);
+    if (p) e[`${prefix}.postalCode`] = p;
+    if (!String(a.country || '').trim()) e[`${prefix}.country`] = 'Country is required';
   };
 
   const submit = async (e) => {
