@@ -1,9 +1,9 @@
-// Browser API client for the SuperLoopz backend.
+// Browser API client for the Suprloopz backend.
 // Attaches the access token, transparently refreshes once on 401, and surfaces
 // a clean ApiError with field-level validation details.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-const STORAGE_KEY = 'superloopz.tokens';
+const STORAGE_KEY = 'suprloopz.tokens';
 
 export function getTokens() {
   if (typeof window === 'undefined') return null;

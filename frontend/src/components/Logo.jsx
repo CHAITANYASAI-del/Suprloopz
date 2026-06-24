@@ -1,4 +1,4 @@
-// SuperLoopz wordmark. `light` renders for dark backgrounds.
+// Suprloopz wordmark. `light` renders for dark backgrounds.
 export function Logo({ light = false, className = '' }) {
   return (
     <span className={`inline-flex items-center gap-2 font-bold tracking-tight ${className}`}>
@@ -8,7 +8,7 @@ export function Logo({ light = false, className = '' }) {
       >
         S
       </span>
-      <span className={light ? 'text-white' : 'text-foreground'}>SuperLoopz</span>
+      <span className={light ? 'text-white' : 'text-foreground'}>Suprloopz</span>
     </span>
   );
 }

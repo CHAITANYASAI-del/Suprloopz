@@ -58,7 +58,7 @@ export default function VendorLoginPage() {
 
       <main className="mx-auto flex max-w-md flex-col px-4 py-16">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in to SuperLoopz</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Sign in to Suprloopz</h1>
           <p className="mt-1 text-sm text-muted-foreground">Use the credentials from your invitation email.</p>
         </div>
 
@@ -100,7 +100,7 @@ export default function VendorLoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · Suprloopz</p>
       </main>
     </div>
   );

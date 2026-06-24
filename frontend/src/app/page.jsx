@@ -1,6 +1,6 @@
 import { Logo } from '@/components/Logo';
 
-export const metadata = { title: 'SuperLoopz — Coming soon' };
+export const metadata = { title: 'Suprloopz — Coming soon' };
 
 // Bare root is a placeholder until the marketing site ships. The two portals live
 // at /admin (staff) and /vendor (vendors).

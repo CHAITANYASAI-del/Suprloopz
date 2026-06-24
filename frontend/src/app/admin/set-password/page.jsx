@@ -1,5 +1,5 @@
 'use client';
-// Staff invite landing — a SuperLoopz team member sets their password after
+// Staff invite landing — a Suprloopz team member sets their password after
 // being invited from the Supabase dashboard, then enters the admin panel.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -97,7 +97,7 @@ export default function StaffSetPasswordPage() {
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Set your staff password</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create a password to access the SuperLoopz admin panel.
+            Create a password to access the Suprloopz admin panel.
           </p>
         </div>
 

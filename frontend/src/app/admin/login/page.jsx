@@ -51,8 +51,8 @@ export default function AdminLoginPage() {
 
       <main className="mx-auto flex max-w-md flex-col px-4 py-16">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">SuperLoopz staff sign-in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">For the SuperLoopz team and technical support.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Suprloopz staff sign-in</h1>
+          <p className="mt-1 text-sm text-muted-foreground">For the Suprloopz team and technical support.</p>
         </div>
 
         <Card>
@@ -64,7 +64,7 @@ export default function AdminLoginPage() {
                 </Alert>
               )}
               <Field label="Email" htmlFor="email" required>
-                <Input id="email" type="email" autoComplete="username" placeholder="you@superloopz.com"
+                <Input id="email" type="email" autoComplete="username" placeholder="you@suprloopz.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>
               <Field label="Password" htmlFor="password" required>
@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · Suprloopz</p>
       </main>
     </div>
   );

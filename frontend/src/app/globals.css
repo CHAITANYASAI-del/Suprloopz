@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* Orbit DS theme tokens (shadcn variable contract). Indigo primary to match
-   the SuperLoopz brand chrome. */
+   the Suprloopz brand chrome. */
 @layer base {
   :root {
     --background: 0 0% 100%;

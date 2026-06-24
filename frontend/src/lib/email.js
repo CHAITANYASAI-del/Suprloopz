@@ -22,14 +22,14 @@ export function generateTempPassword() {
 
 export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL || 'SuperLoopz <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL || 'Suprloopz <onboarding@resend.dev>';
   if (!apiKey) throw new Error('RESEND_API_KEY is not configured');
 
   const html = `
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;color:#0f172a">
-    <h2 style="margin:0 0 8px">You're invited to SuperLoopz</h2>
+    <h2 style="margin:0 0 8px">You're invited to Suprloopz</h2>
     <p style="margin:0 0 16px;color:#475569">
-      A SuperLoopz team member has created your vendor account. Use the temporary
+      A Suprloopz team member has created your vendor account. Use the temporary
       credentials below to sign in — you'll be asked to set your own password right away.
     </p>
     <table style="width:100%;border-collapse:collapse;margin:0 0 16px">
@@ -46,17 +46,17 @@ export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
     </p>
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0 12px" />
     <p style="margin:0;font-size:12px;color:#94a3b8">
-      SuperLoopz · Vendor Onboarding<br />
-      You're receiving this because a SuperLoopz team member invited you as a vendor.
+      Suprloopz · Vendor Onboarding<br />
+      You're receiving this because a Suprloopz team member invited you as a vendor.
       Questions? Reply to this email and our team will help.
     </p>
   </div>`;
 
   // Plain-text alternative — emails with only HTML score worse with spam filters.
   const text = [
-    "You're invited to SuperLoopz",
+    "You're invited to Suprloopz",
     '',
-    'A SuperLoopz team member has created your vendor account. Use the temporary',
+    'A Suprloopz team member has created your vendor account. Use the temporary',
     "credentials below to sign in — you'll set your own password right away.",
     '',
     `Email: ${to}`,
@@ -66,8 +66,8 @@ export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
     '',
     'This temporary password stops working once you set your own.',
     '',
-    'SuperLoopz · Vendor Onboarding',
-    "You're receiving this because a SuperLoopz team member invited you as a vendor.",
+    'Suprloopz · Vendor Onboarding',
+    "You're receiving this because a Suprloopz team member invited you as a vendor.",
   ].join('\n');
 
   const res = await fetch(RESEND_ENDPOINT, {
@@ -77,7 +77,7 @@ export async function sendVendorInviteEmail({ to, tempPassword, activateUrl }) {
       from,
       to: [to],
       reply_to: 'support@suprloopz.com',
-      subject: 'Your SuperLoopz vendor invitation',
+      subject: 'Your Suprloopz vendor invitation',
       html,
       text,
     }),

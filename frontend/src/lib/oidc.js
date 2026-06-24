@@ -1,9 +1,9 @@
 // Browser-side OpenID Connect Authorization Code + PKCE flow against Keycloak,
 // used by the staff/admin portal for true SSO (no in-app password form).
-// Uses the public `superloopz-web` client — no client secret in the browser.
+// Uses the public `suprloopz-web` client — no client secret in the browser.
 const KC_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || 'http://localhost:8080';
-const REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'superloopz';
-const CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'superloopz-web';
+const REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'suprloopz';
+const CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'suprloopz-web';
 
 const authBase = `${KC_URL}/realms/${REALM}/protocol/openid-connect`;
 // Staff portal OIDC callback lives under the /admin path prefix.

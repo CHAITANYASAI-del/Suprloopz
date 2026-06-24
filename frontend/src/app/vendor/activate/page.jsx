@@ -56,7 +56,7 @@ function ActivateForm() {
             <h1 className="text-xl font-semibold tracking-tight">Invitation no longer valid</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               This invitation link has expired or was revoked by an administrator. If you&apos;ve already
-              set up your account, sign in below. Otherwise, please reach out to your SuperLoopz
+              set up your account, sign in below. Otherwise, please reach out to your Suprloopz
               administrator to request a new invitation.
             </p>
           </div>
@@ -67,7 +67,7 @@ function ActivateForm() {
           </a>
         </CardContent>
       </Card>
-      <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · SuperLoopz</p>
+      <p className="mt-6 text-center text-xs text-muted-foreground">Secured by Supabase Auth · Suprloopz</p>
     </main>
   );
 }

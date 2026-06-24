@@ -1,5 +1,5 @@
 'use client';
-// STAFF Supabase client (project B). The SuperLoopz team authenticates here.
+// STAFF Supabase client (project B). The Suprloopz team authenticates here.
 // Every account in this project is staff — there are no vendors in it.
 import { createClient } from '@supabase/supabase-js';
 

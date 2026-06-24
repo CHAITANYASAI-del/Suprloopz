@@ -2,9 +2,9 @@
 
 **Prepared for:** Co-Founder & CTO
 **Date:** 2026-06-23
-**Live app:** https://superloopzvendor.vercel.app
+**Live app:** https://suprloopz.com
 - Vendor portal → `/vendor`
-- Staff/Admin portal → `/vendoradmin`
+- Staff/Admin portal → `/admin`
 
 ---
 
@@ -22,7 +22,7 @@ documents → Address**). Staff review every vendor's data and documents and set
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Frontend | **Next.js 14 (App Router)** on **Vercel** | Single project, two path-based portals (`/vendor`, `/vendoradmin`) |
+| Frontend | **Next.js 14 (App Router)** on **Vercel** | Single project, two path-based portals (`/vendor`, `/admin`) |
 | UI | Tailwind + shadcn/ui (Orbit DS) | — |
 | Auth + DB + Storage | **Supabase** (managed) | **Two separate projects** (see below) |
 | Email | **Resend** | Sends vendor invite emails |
@@ -34,7 +34,7 @@ same email can be both a staff member and a vendor with no collision.
 
 - **VENDOR project** — vendor auth + all vendor data + `legal-docs` storage. The `/vendor`
   portal authenticates here.
-- **STAFF project** — staff auth only (no tables). The `/vendoradmin` portal authenticates
+- **STAFF project** — staff auth only (no tables). The `/admin` portal authenticates
   here. *Every* account in it is staff by definition.
 - The admin app reads/writes vendor data through a server route (`/api/admin`) using the vendor
   service key (bypasses row-level security), **gated by verifying the caller is a real staff
@@ -51,7 +51,7 @@ same email can be both a staff member and a vendor with no collision.
 1. Add the person in the **Staff Supabase project** → Authentication → **Send invitation**.
 2. They get an email → click the link → land on a dedicated **staff set-password page** → set
    a password → enter the admin dashboard.
-3. Returning staff sign in at `/vendoradmin/login`.
+3. Returning staff sign in at `/admin/login`.
 
 ### B) Inviting a vendor (staff does this, from inside the admin app)
 1. Admin → **Invite vendor** → enter **one or many** emails.
@@ -104,18 +104,16 @@ Chronological, most recent first (commit hash · summary):
 | Admin dashboard, vendor detail, doc viewer, verify/reject, status | ✅ Working |
 | Bulk invite + copy-link | ✅ Working |
 | Two-system separation (same email as staff & vendor) | ✅ Verified |
-| Email delivery to **any** address | ⚠️ Pending domain verification (see below) |
+| Email delivery to **any** address | ✅ Live — `suprloopz.com` verified in Resend; sends from `support@suprloopz.com` |
+| Custom domain | ✅ `suprloopz.com` (`/` coming-soon, `/admin`, `/vendor`) |
 
 ---
 
 ## 6. Known limitations / next steps
 
-1. **Resend domain verification (required for production email).**
-   Until a sending **domain** is verified in Resend, invite emails only deliver to the Resend
-   **account owner's** email (test-mode restriction). For demos we either (a) point Resend at a
-   teammate's account so it reaches their inbox, or (b) use the **Copy link** button and share
-   the activation link directly. **Action:** buy a domain, add Resend's DNS records, verify,
-   then set `RESEND_FROM_EMAIL` to that domain. Then it emails any vendor automatically.
+1. **Resend domain verification — ✅ done.** `suprloopz.com` is verified in Resend and invite
+   emails send from `support@suprloopz.com` to any recipient. (Optional: set up GoDaddy email
+   forwarding so replies to `support@` land in an inbox.)
 
 2. **Rotate secrets before launch.** Several keys (Supabase service keys, Resend keys) were
    shared during development and should be regenerated, with the new values set only in Vercel
@@ -140,7 +138,7 @@ NEXT_PUBLIC_STAFF_SUPABASE_ANON_KEY
 STAFF_SUPABASE_SECRET_KEY     # server-only
 
 # App + email
-NEXT_PUBLIC_SITE_URL          # https://superloopzvendor.vercel.app
+NEXT_PUBLIC_SITE_URL          # https://suprloopz.com
 RESEND_API_KEY                # server-only
 RESEND_FROM_EMAIL
 ```
@@ -153,7 +151,7 @@ RESEND_FROM_EMAIL
 |---|---|
 | `frontend/src/app/vendor/activate/page.jsx` | Vendor activation (autofilled login from invite link) |
 | `frontend/src/app/vendor/reset-password/page.jsx` | Vendor sets own password |
-| `frontend/src/app/vendoradmin/set-password/page.jsx` | Staff sets own password |
+| `frontend/src/app/admin/set-password/page.jsx` | Staff sets own password |
 | `frontend/src/app/api/admin/route.js` | Server admin API (list/get/invite/verify docs/signed URLs) |
 | `frontend/src/lib/serverSupabase.js` | Server clients + `verifyStaff` gate |
 | `frontend/src/lib/adminApi.js` | Client → `/api/admin` helper |

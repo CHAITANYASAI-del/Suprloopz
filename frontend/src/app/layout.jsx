@@ -2,7 +2,7 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth';
 
 export const metadata = {
-  title: 'SuperLoopz — Vendor Onboarding',
+  title: 'Suprloopz — Vendor Onboarding',
   description: 'Universal AI-native commerce operating system',
 };
 
