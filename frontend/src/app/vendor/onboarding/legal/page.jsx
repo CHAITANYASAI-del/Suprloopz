@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ShieldCheck, Check } from 'lucide-react';
 import { db } from '@/lib/db';
 import { verifyDocument } from '@/lib/verifyApi';
+import { extractDocNumber } from '@/lib/ocr';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ const DOC_TYPES = [
 const blank = () => ({
   docName: '', docNumber: '', fileKey: '', uploading: false, error: '',
   verified: false, verifying: false, verifiedName: '', verifyMsg: '',
+  ocr: '', // '' | reading | done | failed
 });
 
 export default function LegalPage() {
@@ -33,20 +35,35 @@ export default function LegalPage() {
   const update = (type, patch) => setDocs((d) => ({ ...d, [type]: { ...d[type], ...patch } }));
 
   const handleFile = async (type, file) => {
-    if (!file) return update(type, { fileKey: '', error: '' });
+    if (!file) return update(type, { fileKey: '', error: '', ocr: '' });
     update(type, { uploading: true, error: '' });
     try {
       const path = await db.uploadLegal(type, file);
-      update(type, { fileKey: path, uploading: false });
+      update(type, { fileKey: path, uploading: false, ocr: 'reading' });
+      // Free in-browser OCR → auto-fill the number → auto-verify (best-effort).
+      try {
+        const num = await extractDocNumber(type, file);
+        if (num) {
+          update(type, { docNumber: num, ocr: 'done', verified: false, verifiedName: '', verifyMsg: '' });
+          setErrors((er) => ({ ...er, [`${type}.docNumber`]: undefined }));
+          await verify(type, num);
+        } else {
+          update(type, { ocr: 'failed' });
+        }
+      } catch {
+        update(type, { ocr: 'failed' });
+      }
     } catch (err) {
-      update(type, { uploading: false, fileKey: '', error: err.message || 'Upload failed' });
+      update(type, { uploading: false, fileKey: '', error: err.message || 'Upload failed', ocr: '' });
     }
   };
 
-  // Verify a number against the official registry via Cashfree.
-  const verify = async (type) => {
+  // Verify a number against the official registry (Surepass). `numberOverride` lets
+  // the OCR auto-flow verify the extracted number without waiting on state.
+  const verify = async (type, numberOverride) => {
     const d = docs[type];
-    const fmt = docNumberError(type, d.docNumber);
+    const number = numberOverride ?? d.docNumber;
+    const fmt = docNumberError(type, number);
     if (fmt) {
       setErrors((er) => ({ ...er, [`${type}.docNumber`]: fmt }));
       return;
@@ -54,7 +71,7 @@ export default function LegalPage() {
     setErrors((er) => ({ ...er, [`${type}.docNumber`]: undefined }));
     update(type, { verifying: true, verifyMsg: '', verified: false, verifiedName: '' });
     try {
-      const r = await verifyDocument(type, d.docNumber, d.docName);
+      const r = await verifyDocument(type, number, d.docName);
       if (r.valid) update(type, { verifying: false, verified: true, verifiedName: r.name || '' });
       else update(type, { verifying: false, verifyMsg: r.message || `This ${type} could not be verified` });
     } catch (e) {
@@ -108,8 +125,8 @@ export default function LegalPage() {
       <CardHeader>
         <CardTitle>Legal information</CardTitle>
         <CardDescription>
-          Enter and <strong>verify</strong> your statutory IDs, then upload each certificate.
-          Numbers are checked instantly against the official registry.
+          Upload each certificate — we <strong>read the number automatically</strong> and verify it
+          against the official registry. You can also type any number in manually.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -182,7 +199,11 @@ export default function LegalPage() {
                   </Field>
                 </div>
                 <div className="mt-4">
-                  <Field label={`${title} certificate`} required>
+                  <Field
+                    label={`${title} certificate`}
+                    required
+                    hint="Upload the certificate — we'll read the number off it automatically."
+                  >
                     <FileDropzone
                       onFile={(file) => handleFile(type, file)}
                       uploading={d.uploading}
@@ -190,6 +211,16 @@ export default function LegalPage() {
                       error={d.error || errors[`${type}.file`]}
                     />
                   </Field>
+                  {d.ocr === 'reading' && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading document & verifying…
+                    </p>
+                  )}
+                  {d.ocr === 'failed' && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Couldn&apos;t read the number automatically — please type it above.
+                    </p>
+                  )}
                 </div>
               </div>
             );
