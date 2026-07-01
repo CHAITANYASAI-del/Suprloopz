@@ -20,15 +20,17 @@ export async function POST(req) {
 
   const clean = String(value).toUpperCase().replace(/\s+/g, '');
 
-  // Dev bypass: while provider access is pending, accept any correctly-FORMATTED
-  // number so the onboarding flow can be tested end-to-end. Off in real prod.
-  if (process.env.VERIFY_DEV_BYPASS === 'true' || process.env.CASHFREE_DEV_BYPASS === 'true') {
+  // Format-only pass for a global dev bypass, OR for specific types not yet enabled
+  // with the provider (VERIFY_SKIP, e.g. "PAN" while awaiting Surepass PAN access).
+  const skip = (process.env.VERIFY_SKIP || '').toUpperCase().split(',').map((s) => s.trim());
+  const bypass = process.env.VERIFY_DEV_BYPASS === 'true' || process.env.CASHFREE_DEV_BYPASS === 'true';
+  if (bypass || skip.includes(type)) {
     const fmt = docNumberError(type, clean);
     if (fmt) return Response.json({ valid: false, message: fmt });
     return Response.json({
       valid: true,
-      name: `${(name || '').trim() || 'Verified'} · dev mode (not verified)`,
-      status: 'DEV_BYPASS',
+      name: `${(name || '').trim() || 'Format valid'} · verification pending`,
+      status: 'FORMAT_ONLY',
       dev: true,
     });
   }

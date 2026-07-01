@@ -28,8 +28,8 @@ export async function verifyGstin({ value }) {
   const d = okData(json);
   return {
     valid: !!(d && (d.gstin || d.legal_name)),
-    name: d?.legal_name || d?.business_name || d?.trade_name || null,
-    tradeName: d?.trade_name || null,
+    name: d?.legal_name || d?.business_name || null,
+    tradeName: d?.additional_trade_name || null,
     status: d?.gstin_status || null,
     message: json?.message || (d ? '' : 'GSTIN not found'),
   };
@@ -47,12 +47,12 @@ export async function verifyPan({ value }) {
 }
 
 export async function verifyCin({ value }) {
-  const { json } = await call('/corporate/company-details', { id_number: value });
+  const { json } = await call('/corporate/cin', { id_number: value });
   const d = okData(json);
   return {
-    valid: !!(d && (d.company_name || d.cin)),
+    valid: !!(d && (d.company_name || d.cin_number)),
     name: d?.company_name || null,
-    status: d?.company_status || d?.status || null,
+    status: d?.company_status || null,
     message: json?.message || (d ? '' : 'CIN not found'),
   };
 }
