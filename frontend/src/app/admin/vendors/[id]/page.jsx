@@ -198,13 +198,24 @@ export default function VendorDetailPage() {
                     {d.doc_type} · {d.doc_name}
                   </p>
                   <p className="text-xs text-muted-foreground">{d.doc_number}</p>
+                  {d.auto_verified && d.verified_name && (
+                    <p className="text-xs text-green-700">Registry name: {d.verified_name}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {d.verified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning">Pending</Badge>}
+                  {d.auto_verified ? (
+                    <Badge variant="success">Auto-verified · Surepass</Badge>
+                  ) : d.verified ? (
+                    <Badge variant="success">Verified</Badge>
+                  ) : (
+                    <Badge variant="warning">Manual review</Badge>
+                  )}
                   <Button variant="outline" size="sm" disabled={!d.signed_url} onClick={() => setViewing(d)}>
                     <Eye className="h-4 w-4" /> View
                   </Button>
-                  {isAdmin && !d.verified && (
+                  {/* Manual accept/reject only when NOT auto-verified (i.e. the
+                      credit budget was exhausted → manual fallback). */}
+                  {isAdmin && !d.auto_verified && !d.verified && (
                     <>
                       <Button size="sm" disabled={busy === d.id} onClick={() => verify(d.id)}>
                         <CheckCircle2 className="h-4 w-4" /> Verify

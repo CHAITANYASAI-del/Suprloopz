@@ -89,6 +89,13 @@ export default function AdminDashboard() {
         <StatCard icon={Ban} label="Suspended" value={stats?.suspended} tone="danger" loading={loading} />
         <StatCard icon={ShieldCheck} label="Fully onboarded" value={stats?.fully_onboarded} tone="success" loading={loading} />
         <StatCard icon={FileClock} label="Docs to review" value={stats?.pending_doc_reviews} tone="warning" loading={loading} />
+        <StatCard
+          icon={ShieldCheck}
+          label="Verify credits left"
+          value={stats?.verify_credits_remaining}
+          tone={stats?.verify_credits_remaining === 0 ? 'danger' : 'default'}
+          loading={loading}
+        />
       </div>
 
       <Card>

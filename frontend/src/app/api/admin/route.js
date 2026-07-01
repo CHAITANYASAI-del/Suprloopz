@@ -94,6 +94,12 @@ export async function POST(req) {
         // Only accepted vendors count toward the working stats; un-accepted invites
         // are tracked separately so they don't pollute the "pending" approval count.
         const accepted = vendors.filter((v) => v.accepted);
+        let creditsUsed = 0;
+        try {
+          const { data } = await vendorAdmin.from('verify_usage').select('used').eq('id', true).maybeSingle();
+          creditsUsed = data?.used ?? 0;
+        } catch { /* table not present yet */ }
+        const budget = Number(process.env.VERIFY_CREDIT_BUDGET || 100);
         const stats = {
           total: accepted.length,
           invited: vendors.length - accepted.length,
@@ -102,18 +108,21 @@ export async function POST(req) {
           suspended: accepted.filter((v) => v.status === 'suspended').length,
           fully_onboarded: accepted.filter((v) => v.fully_onboarded).length,
           pending_doc_reviews: (docs.data || []).filter((d) => !d.verified && d.file_path).length,
+          verify_credits_used: creditsUsed,
+          verify_credits_remaining: Math.max(0, budget - creditsUsed),
         };
         return ok({ vendors, stats });
       }
       case 'get': {
         const id = body.userId;
-        const [profile, company, onboarding, documents, addresses, prof] = await Promise.all([
+        const [profile, company, onboarding, documents, addresses, prof, verifs] = await Promise.all([
           vendorAdmin.from('vendor_profiles').select('*').eq('user_id', id).maybeSingle(),
           vendorAdmin.from('companies').select('*').eq('user_id', id).maybeSingle(),
           vendorAdmin.from('onboarding_status').select('*').eq('user_id', id).maybeSingle(),
           vendorAdmin.from('legal_documents').select('*').eq('user_id', id).order('doc_type'),
           vendorAdmin.from('addresses').select('*').eq('user_id', id).order('type'),
           vendorAdmin.from('profiles').select('id,email,role,created_at').eq('id', id).maybeSingle(),
+          vendorAdmin.from('verifications').select('doc_type,id_number,registered_name').eq('user_id', id).eq('valid', true),
         ]);
 
         // Pre-sign every document link (valid 1h) so the admin's "View" is instant
@@ -125,7 +134,14 @@ export async function POST(req) {
           const { data: urls } = await vendorAdmin.storage.from('legal-docs').createSignedUrls(paths, 3600);
           signed = Object.fromEntries((urls || []).map((u) => [u.path, u.signedUrl]));
         }
-        const documentsWithUrls = docRows.map((d) => ({ ...d, signed_url: signed[d.file_path] || null }));
+        // Flag docs that were auto-verified via the provider (match type + number).
+        const norm = (s) => String(s || '').toUpperCase().replace(/\s+/g, '');
+        const vmap = {};
+        for (const v of verifs.data || []) vmap[`${v.doc_type}:${norm(v.id_number)}`] = v;
+        const documentsWithUrls = docRows.map((d) => {
+          const m = vmap[`${d.doc_type}:${norm(d.doc_number)}`];
+          return { ...d, signed_url: signed[d.file_path] || null, auto_verified: !!m, verified_name: m?.registered_name || null };
+        });
 
         return ok({
           user: prof.data, profile: profile.data, company: company.data,

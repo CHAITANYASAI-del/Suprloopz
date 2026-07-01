@@ -185,3 +185,39 @@ create policy legaldocs_rw on storage.objects for all
     bucket_id = 'legal-docs'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- =============================================================================
+-- Automated document verification (Surepass) — credit budget + per-doc records
+-- Written only by the server (service key). When the budget is exhausted the app
+-- falls back to manual admin verification.
+-- =============================================================================
+
+-- Single-row credit counter. Increment atomically via consume_verify_credit().
+create table if not exists public.verify_usage (
+  id boolean primary key default true,
+  used integer not null default 0,
+  constraint verify_usage_one_row check (id)
+);
+insert into public.verify_usage (id, used) values (true, 0) on conflict (id) do nothing;
+
+create or replace function public.consume_verify_credit() returns integer
+language sql volatile security definer as $$
+  update public.verify_usage set used = used + 1 where id returning used;
+$$;
+
+-- One row per successful automated verification (server-inserted only).
+create table if not exists public.verifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  doc_type doc_type not null,
+  id_number text not null,
+  valid boolean not null default false,
+  registered_name text,
+  source text default 'surepass',
+  created_at timestamptz default now()
+);
+alter table public.verifications enable row level security;
+drop policy if exists verifications_sel on public.verifications;
+create policy verifications_sel on public.verifications for select
+  using (user_id = auth.uid() or public.is_staff());
+-- No insert/update policy: writes go through the service key only.
