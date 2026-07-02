@@ -221,3 +221,27 @@ drop policy if exists verifications_sel on public.verifications;
 create policy verifications_sel on public.verifications for select
   using (user_id = auth.uid() or public.is_staff());
 -- No insert/update policy: writes go through the service key only.
+
+-- On insert of a legal document, set `verified` AUTHORITATIVELY from the automated
+-- verifications table — the vendor can't self-verify (the value is derived server-side,
+-- never trusted from the client). Admin manual verify (a later UPDATE) is unaffected.
+create or replace function public.mark_autoverified() returns trigger
+language plpgsql security definer as $$
+begin
+  new.verified := exists (
+    select 1 from public.verifications v
+    where v.user_id = new.user_id
+      and v.doc_type = new.doc_type
+      and upper(replace(v.id_number, ' ', '')) = upper(replace(coalesce(new.doc_number, ''), ' ', ''))
+      and v.valid
+  );
+  if new.verified then
+    new.verified_at := now();
+    new.verified_by := 'surepass';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists legal_docs_autoverify on public.legal_documents;
+create trigger legal_docs_autoverify before insert on public.legal_documents
+  for each row execute function public.mark_autoverified();

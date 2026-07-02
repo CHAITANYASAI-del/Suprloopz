@@ -109,7 +109,7 @@ export default function VendorDetailPage() {
     );
   }
 
-  const { user: u, profile, company, onboarding, documents = [], addresses = [], activity = [] } = data;
+  const { user: u, profile, company, onboarding, documents = [], addresses = [] } = data;
 
   return (
     <div className="space-y-6">
@@ -249,40 +249,22 @@ export default function VendorDetailPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Addresses</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {addresses.length === 0 && <p className="text-sm text-muted-foreground">No addresses.</p>}
-            {addresses.map((a) => (
-              <div key={a.id} className="text-sm">
-                <p className="font-medium capitalize">{a.type}</p>
-                <p className="text-muted-foreground">
-                  {[a.street_address, a.city, a.state, a.postal_code, a.country].filter(Boolean).join(', ')}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Activity</CardTitle>
-            <CardDescription>Recent audit-log events.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {activity.length === 0 && <p className="text-sm text-muted-foreground">No activity.</p>}
-            {activity.map((ev, i) => (
-              <div key={i} className="flex justify-between gap-2 text-xs">
-                <span className="font-mono">{ev.action}</span>
-                <span className="text-muted-foreground">{new Date(ev.created_at).toLocaleString()}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Addresses</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          {addresses.length === 0 && <p className="text-sm text-muted-foreground">No addresses.</p>}
+          {addresses.map((a) => (
+            <div key={a.id} className="text-sm">
+              <p className="font-medium capitalize">{a.type}</p>
+              <p className="text-muted-foreground">
+                {[a.street_address, a.city, a.state, a.postal_code, a.country].filter(Boolean).join(', ')}
+              </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

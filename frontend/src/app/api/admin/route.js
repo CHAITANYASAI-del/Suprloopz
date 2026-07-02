@@ -146,7 +146,7 @@ export async function POST(req) {
         return ok({
           user: prof.data, profile: profile.data, company: company.data,
           onboarding: onboarding.data, documents: documentsWithUrls,
-          addresses: addresses.data || [], activity: [],
+          addresses: addresses.data || [],
         });
       }
       case 'setStatus':
