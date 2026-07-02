@@ -1,39 +1,49 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ShieldCheck, Check, Lock } from 'lucide-react';
+import { Loader2, ShieldCheck, Lock, X, RefreshCw, Clock } from 'lucide-react';
 import { db } from '@/lib/db';
 import { verifyDocument } from '@/lib/verifyApi';
 import { extractDocNumber } from '@/lib/ocr';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { FileDropzone } from '@/components/FileDropzone';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { docNumberError, requiredText, upper, MAXLEN } from '@/lib/validators';
+import { docNumberError, upper, MAXLEN } from '@/lib/validators';
 
 const DOC_TYPES = [
-  { type: 'GST', title: 'GST', nameLabel: 'Name on GST', numberLabel: 'GST number', placeholder: '22ABCDE1234F1Z5' },
-  { type: 'PAN', title: 'PAN', nameLabel: 'Name on PAN', numberLabel: 'PAN number', placeholder: 'ABCDE1234F' },
-  { type: 'CIN', title: 'CIN', nameLabel: 'Name on CIN', numberLabel: 'CIN number', placeholder: 'U72200KA2020PTC123456' },
+  { type: 'GST', title: 'GST', placeholder: '22ABCDE1234F1Z5' },
+  { type: 'PAN', title: 'PAN', placeholder: 'ABCDE1234F' },
+  { type: 'CIN', title: 'CIN', placeholder: 'U72200KA2020PTC123456' },
 ];
 
 const blank = () => ({
   docName: '', docNumber: '', fileKey: '', uploading: false, error: '',
-  verified: false, verifying: false, verifiedName: '', verifyMsg: '',
-  ocr: '', // '' | reading | done | failed
+  verified: false, verifying: false, verifiedName: '', verifyMsg: '', pending: false,
+  ocr: '', manual: false,
 });
+
+function Row({ label, value }) {
+  return (
+    <div className="flex justify-between gap-4 py-0.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value || '—'}</span>
+    </div>
+  );
+}
 
 export default function LegalPage() {
   const router = useRouter();
   const [docs, setDocs] = useState({ GST: blank(), PAN: blank(), CIN: blank() });
-  const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
   const [locked, setLocked] = useState(null); // null=loading, false=editable, array=submitted docs
 
   const update = (type, patch) => setDocs((d) => ({ ...d, [type]: { ...d[type], ...patch } }));
+  const resetDoc = (type) => setDocs((d) => ({ ...d, [type]: blank() }));
 
   // Once submitted, legal documents are locked (KYC). Otherwise prefill any partial data.
   useEffect(() => {
@@ -62,78 +72,62 @@ export default function LegalPage() {
       .catch(() => setLocked(false));
   }, []);
 
-  const handleFile = async (type, file) => {
-    if (!file) return update(type, { fileKey: '', error: '', ocr: '' });
-    update(type, { uploading: true, error: '' });
-    try {
-      const path = await db.uploadLegal(type, file);
-      update(type, { fileKey: path, uploading: false, ocr: 'reading' });
-      // Free in-browser OCR → auto-fill the number → auto-verify (best-effort).
-      try {
-        const num = await extractDocNumber(type, file);
-        if (num) {
-          update(type, { docNumber: num, ocr: 'done', verified: false, verifiedName: '', verifyMsg: '' });
-          setErrors((er) => ({ ...er, [`${type}.docNumber`]: undefined }));
-          await verify(type, num);
-        } else {
-          update(type, { ocr: 'failed' });
-        }
-      } catch {
-        update(type, { ocr: 'failed' });
-      }
-    } catch (err) {
-      update(type, { uploading: false, fileKey: '', error: err.message || 'Upload failed', ocr: '' });
-    }
-  };
-
-  // Verify a number against the official registry (Surepass). `numberOverride` lets
-  // the OCR auto-flow verify the extracted number without waiting on state.
-  const verify = async (type, numberOverride) => {
-    const d = docs[type];
-    const number = numberOverride ?? d.docNumber;
+  // Verify a number against the registry. Sets the card into verified / pending / failed.
+  const verify = async (type, number) => {
     const fmt = docNumberError(type, number);
-    if (fmt) {
-      setErrors((er) => ({ ...er, [`${type}.docNumber`]: fmt }));
-      return;
-    }
-    setErrors((er) => ({ ...er, [`${type}.docNumber`]: undefined }));
-    update(type, { verifying: true, verifyMsg: '', verified: false, verifiedName: '' });
+    if (fmt) return update(type, { verifying: false, verifyMsg: fmt });
+    update(type, { verifying: true, verifyMsg: '', verified: false });
     try {
-      const r = await verifyDocument(type, number, d.docName);
-      if (r.valid) update(type, { verifying: false, verified: true, verifiedName: r.name || '' });
-      else update(type, { verifying: false, verifyMsg: r.message || `This ${type} could not be verified` });
+      const r = await verifyDocument(type, number, '');
+      if (r.valid) {
+        update(type, {
+          verifying: false, verified: true, pending: !!r.dev,
+          verifiedName: r.dev ? '' : r.name || '',
+          docName: r.dev ? type : r.name || type,
+          docNumber: number, manual: false,
+        });
+      } else {
+        update(type, { verifying: false, verifyMsg: r.message || `This ${type} could not be verified` });
+      }
     } catch (e) {
       update(type, { verifying: false, verifyMsg: e.message || 'Verification failed. Please try again.' });
     }
   };
 
-  const validate = () => {
-    const e = {};
-    for (const { type } of DOC_TYPES) {
-      const d = docs[type];
-      const nm = requiredText(d.docName, 'Name', 2);
-      if (nm) e[`${type}.docName`] = nm;
-      const num = docNumberError(type, d.docNumber);
-      if (num) e[`${type}.docNumber`] = num;
-      else if (!d.verified) e[`${type}.docNumber`] = `Click Verify to confirm this ${type}`;
-      if (!d.fileKey) e[`${type}.file`] = 'Upload a document';
+  // Upload → OCR read the number → auto-verify. All from a single drop.
+  const handleFile = async (type, file) => {
+    if (!file) return resetDoc(type);
+    update(type, { uploading: true, error: '', verifyMsg: '' });
+    let path;
+    try {
+      path = await db.uploadLegal(type, file);
+    } catch (err) {
+      return update(type, { uploading: false, fileKey: '', error: err.message || 'Upload failed' });
     }
-    return e;
+    update(type, { fileKey: path, uploading: false, ocr: 'reading' });
+    try {
+      const num = await extractDocNumber(type, file);
+      if (num) {
+        update(type, { docNumber: num, ocr: 'done' });
+        await verify(type, num);
+      } else {
+        update(type, { ocr: 'failed', verifyMsg: "We couldn't read the number from this document." });
+      }
+    } catch {
+      update(type, { ocr: 'failed', verifyMsg: "We couldn't read the number from this document." });
+    }
   };
 
   const submit = async (e) => {
     e.preventDefault();
     setFormError('');
-    const v = validate();
-    setErrors(v);
-    if (Object.keys(v).length) return;
-
+    if (!DOC_TYPES.every(({ type }) => docs[type].verified)) return;
     setLoading(true);
     try {
       await db.saveLegal(
         DOC_TYPES.map(({ type }) => ({
           docType: type,
-          docName: docs[type].docName.trim(),
+          docName: (docs[type].docName || type).trim(),
           docNumber: docs[type].docNumber.trim(),
           filePath: docs[type].fileKey,
         })),
@@ -173,9 +167,7 @@ export default function LegalPage() {
           {locked.map((d) => (
             <div key={d.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
               <div>
-                <p className="font-medium">
-                  {d.doc_type} · {d.doc_name}
-                </p>
+                <p className="font-medium">{d.doc_type} · {d.doc_name}</p>
                 <p className="text-xs text-muted-foreground">{d.doc_number}</p>
               </div>
               {d.verified ? (
@@ -188,12 +180,8 @@ export default function LegalPage() {
             </div>
           ))}
           <div className="flex justify-between pt-2">
-            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>
-              Back
-            </Button>
-            <Button type="button" onClick={() => router.push('/vendor/onboarding/address')}>
-              Continue
-            </Button>
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>Back</Button>
+            <Button type="button" onClick={() => router.push('/vendor/onboarding/address')}>Continue</Button>
           </div>
         </CardContent>
       </Card>
@@ -203,120 +191,128 @@ export default function LegalPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Legal information</CardTitle>
+        <CardTitle>Legal documents</CardTitle>
         <CardDescription>
-          Upload each certificate — we <strong>read the number automatically</strong> and verify it
-          against the official registry. You can also type any number in manually.
+          Just upload each certificate — we <strong>read the number and verify it automatically</strong>
+          {' '}against the official registry.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} className="space-y-6" noValidate>
+        <form onSubmit={submit} className="space-y-5" noValidate>
           {formError && (
             <Alert variant="destructive">
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           )}
 
-          {DOC_TYPES.map(({ type, title, nameLabel, numberLabel, placeholder }) => {
+          {DOC_TYPES.map(({ type, title, placeholder }) => {
             const d = docs[type];
+            const busy = d.uploading || d.ocr === 'reading' || d.verifying;
             return (
               <div key={type} className="rounded-lg border p-4">
-                <h3 className="mb-3 text-sm font-semibold">{title} details</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label={nameLabel} error={errors[`${type}.docName`]} required>
-                    <Input
-                      value={d.docName}
-                      onChange={(e) => update(type, { docName: e.target.value })}
-                      aria-invalid={!!errors[`${type}.docName`]}
-                    />
-                  </Field>
-                  <Field
-                    label={numberLabel}
-                    error={errors[`${type}.docNumber`]}
-                    required
-                    hint={!d.verified ? `Format: ${placeholder}` : undefined}
+                <h3 className="mb-3 text-sm font-semibold">{title} certificate</h3>
+
+                {/* 1) Nothing yet → upload zone */}
+                {!d.fileKey && !busy && (
+                  <FileDropzone onFile={(file) => handleFile(type, file)} uploading={false} uploaded={false} error={d.error} />
+                )}
+
+                {/* 2) Working → processing card */}
+                {busy && (
+                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4 text-sm">
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
+                    <span className="text-muted-foreground">
+                      {d.uploading ? 'Uploading…' : d.ocr === 'reading' ? 'Reading document…' : 'Verifying with the registry…'}
+                    </span>
+                  </div>
+                )}
+
+                {/* 3) Verified → result card */}
+                {!busy && d.verified && (
+                  <div
+                    className={
+                      d.pending
+                        ? 'rounded-lg border border-amber-200 bg-amber-50 p-4'
+                        : 'rounded-lg border border-green-200 bg-green-50 p-4'
+                    }
                   >
-                    <div className="flex gap-2">
-                      <Input
-                        value={d.docNumber}
-                        placeholder={placeholder}
-                        maxLength={MAXLEN[type]}
-                        className="uppercase"
-                        onChange={(e) =>
-                          update(type, {
-                            docNumber: upper(e.target.value).slice(0, MAXLEN[type]),
-                            verified: false, verifiedName: '', verifyMsg: '',
-                          })
-                        }
-                        aria-invalid={!!errors[`${type}.docNumber`]}
-                      />
-                      <Button
-                        type="button"
-                        variant={d.verified ? 'outline' : 'default'}
-                        className="shrink-0"
-                        disabled={d.verifying || d.verified || !d.docNumber}
-                        onClick={() => verify(type)}
+                    <div className="mb-2 flex items-center justify-between">
+                      <span
+                        className={`flex items-center gap-1.5 text-sm font-semibold ${d.pending ? 'text-amber-800' : 'text-green-800'}`}
                       >
-                        {d.verifying ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : d.verified ? (
-                          <>
-                            <Check className="h-4 w-4" /> Verified
-                          </>
-                        ) : (
-                          'Verify'
-                        )}
-                      </Button>
+                        {d.pending ? <Clock className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                        {d.pending ? `${title} received` : `${title} verified`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => resetDoc(type)}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Remove & upload a different file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    {d.verified && (
-                      <p className="mt-1 flex items-center gap-1 text-xs font-medium text-green-700">
-                        <ShieldCheck className="h-3.5 w-3.5" /> {d.verifiedName || 'Verified'}
-                      </p>
-                    )}
-                    {!d.verified && d.verifyMsg && (
-                      <p className="mt-1 text-xs font-medium text-destructive">{d.verifyMsg}</p>
-                    )}
-                  </Field>
-                </div>
-                <div className="mt-4">
-                  <Field
-                    label={`${title} certificate`}
-                    required
-                    hint="Upload the certificate — we'll read the number off it automatically."
-                  >
-                    <FileDropzone
-                      onFile={(file) => handleFile(type, file)}
-                      uploading={d.uploading}
-                      uploaded={!!d.fileKey}
-                      error={d.error || errors[`${type}.file`]}
+                    {d.verifiedName && <Row label={`Name on ${title}`} value={d.verifiedName} />}
+                    <Row label={`${title} number`} value={d.docNumber} />
+                    <Row
+                      label="Status"
+                      value={
+                        d.pending
+                          ? <Badge variant="warning">Verification pending</Badge>
+                          : <Badge variant="success">Verified</Badge>
+                      }
                     />
-                  </Field>
-                  {d.ocr === 'reading' && (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading document & verifying…
-                    </p>
-                  )}
-                  {d.ocr === 'failed' && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Couldn&apos;t read the number automatically — please type it above.
-                    </p>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* 4) Couldn't read/verify → retry or manual */}
+                {!busy && d.fileKey && !d.verified && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+                    <p className="font-medium text-amber-800">Couldn&apos;t verify this document</p>
+                    <p className="mt-1 text-amber-700">{d.verifyMsg || 'Please upload a clearer copy.'}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => resetDoc(type)}>
+                        <RefreshCw className="h-4 w-4" /> Re-upload
+                      </Button>
+                      {!d.manual && (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => update(type, { manual: true })}>
+                          Enter number manually
+                        </Button>
+                      )}
+                    </div>
+                    {d.manual && (
+                      <div className="mt-3">
+                        <Field label={`${title} number`} hint={`Format: ${placeholder}`}>
+                          <div className="flex gap-2">
+                            <Input
+                              value={d.docNumber}
+                              placeholder={placeholder}
+                              maxLength={MAXLEN[type]}
+                              className="uppercase"
+                              onChange={(e) => update(type, { docNumber: upper(e.target.value).slice(0, MAXLEN[type]) })}
+                            />
+                            <Button type="button" className="shrink-0" disabled={!d.docNumber} onClick={() => verify(type, d.docNumber)}>
+                              Verify
+                            </Button>
+                          </div>
+                        </Field>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
 
           <div className="flex items-center justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>
-              Back
-            </Button>
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>Back</Button>
             <Button type="submit" disabled={loading || !allVerified}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? 'Saving…' : 'Continue'}
             </Button>
           </div>
           {!allVerified && (
-            <p className="text-right text-xs text-muted-foreground">Verify all three numbers to continue.</p>
+            <p className="text-right text-xs text-muted-foreground">Upload & verify all three documents to continue.</p>
           )}
         </form>
       </CardContent>
