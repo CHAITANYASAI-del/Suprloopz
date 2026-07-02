@@ -1,13 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, FileText } from 'lucide-react';
+import { CheckCircle2, Clock, FileText, ArrowRight } from 'lucide-react';
 import { db } from '@/lib/db';
 import { useAuth } from '@/lib/auth';
 import { routes } from '@/lib/routes';
 import { AppHeader } from '@/components/AppHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
   const { ready, isAuthenticated, user } = useAuth();
@@ -33,12 +34,13 @@ export default function DashboardPage() {
   }
 
   const o = data?.onboarding;
-  const steps = [
-    ['Profile completed', o?.profile_completed],
-    ['Company info', o?.company_info_completed],
-    ['Legal documents', o?.legal_docs_completed],
-    ['Addresses', o?.address_completed],
+  const stepDefs = [
+    { key: 'profile', label: 'Profile completed', done: !!o?.profile_completed },
+    { key: 'company', label: 'Company info', done: !!o?.company_info_completed },
+    { key: 'legal', label: 'Legal documents', done: !!o?.legal_docs_completed },
+    { key: 'address', label: 'Addresses', done: !!o?.address_completed },
   ];
+  const firstIncomplete = stepDefs.find((s) => !s.done)?.key || 'profile';
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -63,9 +65,16 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="flex items-center gap-3 py-4">
-              <Clock className="h-6 w-6 text-amber-600" />
-              <p className="text-sm text-amber-800">Your onboarding is still in progress.</p>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div className="flex items-center gap-3">
+                <Clock className="h-6 w-6 shrink-0 text-amber-600" />
+                <p className="text-sm text-amber-800">
+                  Your onboarding is still in progress. Pick up where you left off.
+                </p>
+              </div>
+              <Button onClick={() => router.push(routes.onboarding(firstIncomplete))}>
+                Continue onboarding <ArrowRight className="h-4 w-4" />
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -76,13 +85,19 @@ export default function DashboardPage() {
               <CardTitle className="text-base">Onboarding checklist</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {steps.map(([label, done]) => (
-                <div key={label} className="flex items-center justify-between text-sm">
-                  <span>{label}</span>
-                  {done ? (
+              {stepDefs.map((s) => (
+                <div key={s.key} className="flex items-center justify-between text-sm">
+                  <span>{s.label}</span>
+                  {s.done ? (
                     <Badge variant="success">Done</Badge>
                   ) : (
-                    <Badge variant="secondary">Pending</Badge>
+                    <button
+                      type="button"
+                      onClick={() => router.push(routes.onboarding(s.key))}
+                      className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    >
+                      Continue <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               ))}
