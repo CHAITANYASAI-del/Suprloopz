@@ -55,12 +55,20 @@ export async function POST(req) {
     });
   }
 
+  let result;
   try {
-    const result = await verifier({ value: clean, name });
-    // A provider call was made → spend one credit.
-    await vendorAdmin.rpc('consume_verify_credit').catch(() => {});
-    // Record successful automated verifications so admin can show auto-verified docs.
-    if (result.valid) {
+    result = await verifier({ value: clean, name });
+  } catch (e) {
+    return Response.json({ error: e.message || 'Verification failed' }, { status: 502 });
+  }
+
+  // Book-keeping is best-effort — never let it fail the verification the vendor sees.
+  // (Supabase query builders are await-able but have no .catch(), so wrap in try/catch.)
+  try {
+    await vendorAdmin.rpc('consume_verify_credit');
+  } catch { /* ignore */ }
+  if (result.valid) {
+    try {
       await vendorAdmin.from('verifications').insert({
         user_id: vendor.id,
         doc_type: type,
@@ -68,10 +76,9 @@ export async function POST(req) {
         valid: true,
         registered_name: result.name || null,
         source: process.env.VERIFY_PROVIDER || 'surepass',
-      }).catch(() => {});
-    }
-    return Response.json(result);
-  } catch (e) {
-    return Response.json({ error: e.message || 'Verification failed' }, { status: 502 });
+      });
+    } catch { /* ignore */ }
   }
+
+  return Response.json(result);
 }
