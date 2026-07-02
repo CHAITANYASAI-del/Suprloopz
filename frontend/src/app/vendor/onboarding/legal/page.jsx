@@ -193,8 +193,8 @@ export default function LegalPage() {
       <CardHeader>
         <CardTitle>Legal documents</CardTitle>
         <CardDescription>
-          Just upload each certificate — we <strong>read the number and verify it automatically</strong>
-          {' '}against the official registry.
+          Just upload each certificate — we <strong>read the number automatically</strong> and verify it
+          against the official registry where available. The rest are saved for our team to review.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -241,7 +241,7 @@ export default function LegalPage() {
                         className={`flex items-center gap-1.5 text-sm font-semibold ${d.pending ? 'text-amber-800' : 'text-green-800'}`}
                       >
                         {d.pending ? <Clock className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                        {d.pending ? `${title} received` : `${title} verified`}
+                        {d.pending ? `${title} uploaded` : `${title} verified`}
                       </span>
                       <button
                         type="button"
@@ -258,21 +258,34 @@ export default function LegalPage() {
                       label="Status"
                       value={
                         d.pending
-                          ? <Badge variant="warning">Verification pending</Badge>
+                          ? <Badge variant="warning">Pending verification</Badge>
                           : <Badge variant="success">Verified</Badge>
                       }
                     />
+                    {d.pending && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        Saved. Our team will verify this against the official registry — you can continue.
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* 4) Couldn't read/verify → retry or manual */}
+                {/* 4) Couldn't read/verify → retry / re-upload / manual */}
                 {!busy && d.fileKey && !d.verified && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
-                    <p className="font-medium text-amber-800">Couldn&apos;t verify this document</p>
-                    <p className="mt-1 text-amber-700">{d.verifyMsg || 'Please upload a clearer copy.'}</p>
+                    <p className="font-medium text-amber-800">Couldn&apos;t verify this {title}</p>
+                    <p className="mt-1 text-amber-700">
+                      {d.verifyMsg ||
+                        "We couldn't read the number from this document. Upload a clearer copy, or enter it manually."}
+                    </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {d.docNumber && (
+                        <Button type="button" size="sm" onClick={() => verify(type, d.docNumber)}>
+                          <RefreshCw className="h-4 w-4" /> Try again
+                        </Button>
+                      )}
                       <Button type="button" size="sm" variant="outline" onClick={() => resetDoc(type)}>
-                        <RefreshCw className="h-4 w-4" /> Re-upload
+                        Upload a different file
                       </Button>
                       {!d.manual && (
                         <Button type="button" size="sm" variant="ghost" onClick={() => update(type, { manual: true })}>
