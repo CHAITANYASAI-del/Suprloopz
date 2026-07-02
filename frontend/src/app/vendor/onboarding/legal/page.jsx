@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ShieldCheck, Check } from 'lucide-react';
+import { Loader2, ShieldCheck, Check, Lock } from 'lucide-react';
 import { db } from '@/lib/db';
 import { verifyDocument } from '@/lib/verifyApi';
 import { extractDocNumber } from '@/lib/ocr';
@@ -31,8 +31,36 @@ export default function LegalPage() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locked, setLocked] = useState(null); // null=loading, false=editable, array=submitted docs
 
   const update = (type, patch) => setDocs((d) => ({ ...d, [type]: { ...d[type], ...patch } }));
+
+  // Once submitted, legal documents are locked (KYC). Otherwise prefill any partial data.
+  useEffect(() => {
+    Promise.all([db.onboarding(), db.getDocuments()])
+      .then(([{ onboarding: o }, rows]) => {
+        if (o?.legal_docs_completed && rows.length) {
+          setLocked(rows);
+          return;
+        }
+        setLocked(false);
+        if (rows.length) {
+          setDocs((prev) => {
+            const next = { ...prev };
+            for (const r of rows) {
+              if (!next[r.doc_type]) continue;
+              next[r.doc_type] = {
+                ...next[r.doc_type],
+                docName: r.doc_name || '', docNumber: r.doc_number || '', fileKey: r.file_path || '',
+                verified: !!r.verified, verifiedName: r.verified ? r.doc_name || '' : '',
+              };
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => setLocked(false));
+  }, []);
 
   const handleFile = async (type, file) => {
     if (!file) return update(type, { fileKey: '', error: '', ocr: '' });
@@ -119,6 +147,58 @@ export default function LegalPage() {
   };
 
   const allVerified = DOC_TYPES.every(({ type }) => docs[type].verified);
+
+  if (locked === null) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Submitted → read-only. Changing a verified statutory document is admin-mediated.
+  if (locked) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-muted-foreground" /> Legal documents
+          </CardTitle>
+          <CardDescription>
+            Your statutory documents are submitted and locked. To change a verified document,
+            contact the Suprloopz team.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {locked.map((d) => (
+            <div key={d.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+              <div>
+                <p className="font-medium">
+                  {d.doc_type} · {d.doc_name}
+                </p>
+                <p className="text-xs text-muted-foreground">{d.doc_number}</p>
+              </div>
+              {d.verified ? (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+                  <ShieldCheck className="h-4 w-4" /> Verified
+                </span>
+              ) : (
+                <span className="text-xs font-medium text-amber-600">Under review</span>
+              )}
+            </div>
+          ))}
+          <div className="flex justify-between pt-2">
+            <Button type="button" variant="outline" onClick={() => router.push('/vendor/onboarding/company')}>
+              Back
+            </Button>
+            <Button type="button" onClick={() => router.push('/vendor/onboarding/address')}>
+              Continue
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

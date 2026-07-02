@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { db } from '@/lib/db';
@@ -20,6 +20,25 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false); // already onboarded → return to dashboard on save
+
+  // Prefill saved values so the vendor can review/edit.
+  useEffect(() => {
+    db.onboarding()
+      .then(({ profile, onboarding }) => {
+        setEditing(!!onboarding?.fully_onboarded);
+        if (!profile) return;
+        const parts = (profile.phone || '').trim().split(' ');
+        const hasCode = parts.length > 1 && parts[0].startsWith('+');
+        setForm({
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          countryCode: hasCode ? parts[0] : '+91',
+          phone: hasCode ? parts.slice(1).join('') : (profile.phone || ''),
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
   // Phone: keep only digits; cap at 10 for Indian numbers.
@@ -53,7 +72,7 @@ export default function ProfilePage() {
         lastName: form.lastName.trim(),
         phone: `${form.countryCode} ${form.phone.trim()}`,
       });
-      router.push('/vendor/onboarding/company');
+      router.push(editing ? routes.vendorDashboard : '/vendor/onboarding/company');
     } catch (err) {
       setFormError(err.message || 'Could not save your profile.');
     } finally {

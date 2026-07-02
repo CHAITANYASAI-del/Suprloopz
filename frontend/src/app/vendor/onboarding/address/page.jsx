@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { db } from '@/lib/db';
@@ -72,6 +72,27 @@ export default function AddressPage() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Prefill saved addresses for review/edit.
+  useEffect(() => {
+    db.getAddresses()
+      .then((rows) => {
+        const by = Object.fromEntries((rows || []).map((r) => [r.type, r]));
+        const map = (r) => ({
+          streetAddress: r.street_address || '', city: r.city || '', state: r.state || '',
+          postalCode: r.postal_code || '', country: r.country || 'India',
+        });
+        if (by.registered) setRegistered(map(by.registered));
+        if (by.shipping) setShipping(map(by.shipping));
+        if (by.billing) {
+          const reg = by.registered ? map(by.registered) : null;
+          const bill = map(by.billing);
+          setBilling(bill);
+          setSameAsBilling(reg ? JSON.stringify(reg) === JSON.stringify(bill) : false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const validateAddress = (a, prefix, e) => {
     const s = requiredText(a.streetAddress, 'Street address', 3);

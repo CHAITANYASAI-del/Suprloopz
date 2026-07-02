@@ -89,7 +89,16 @@ export default function DashboardPage() {
                 <div key={s.key} className="flex items-center justify-between text-sm">
                   <span>{s.label}</span>
                   {s.done ? (
-                    <Badge variant="success">Done</Badge>
+                    <span className="flex items-center gap-2">
+                      <Badge variant="success">Done</Badge>
+                      <button
+                        type="button"
+                        onClick={() => router.push(routes.onboarding(s.key))}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {s.key === 'legal' ? 'View' : 'Edit'}
+                      </button>
+                    </span>
                   ) : (
                     <button
                       type="button"

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { db } from '@/lib/db';
@@ -46,8 +46,26 @@ export default function CompanyPage() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false); // already onboarded → return to dashboard on save
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e?.target ? e.target.value : e }));
+
+  // Prefill saved company info for review/edit.
+  useEffect(() => {
+    db.onboarding().then(({ onboarding: o }) => setEditing(!!o?.fully_onboarded)).catch(() => {});
+    db.getCompany()
+      .then((c) => {
+        if (!c) return;
+        setForm({
+          legalName: c.legal_name || '', tradeName: c.trade_name || '', registrationNumber: c.registration_number || '',
+          incorporationDate: c.incorporation_date || '', industry: c.industry || '', companyEmail: c.company_email || '',
+          vendorType: c.vendor_type || '', vendorCategory: c.vendor_category || '', yearsInBusiness: c.years_in_business || '',
+          numberOfEmployees: c.number_of_employees || '', annualTurnover: c.annual_turnover || '', website: c.website || '',
+          companySpeciality: c.company_speciality || '',
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   // Everything is required except Website and Company speciality (marked optional).
   const validate = () => {
@@ -84,7 +102,7 @@ export default function CompanyPage() {
     setLoading(true);
     try {
       await db.saveCompany(form);
-      router.push('/vendor/onboarding/legal');
+      router.push(editing ? '/vendor/dashboard' : '/vendor/onboarding/legal');
     } catch (err) {
       setFormError(err.message || 'Could not save company information.');
     } finally {
