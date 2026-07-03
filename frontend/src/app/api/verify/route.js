@@ -75,6 +75,7 @@ export async function POST(req) {
         id_number: clean,
         valid: true,
         registered_name: result.name || null,
+        details: result.details || null,
         source: process.env.VERIFY_PROVIDER || 'surepass',
       });
     } catch { /* ignore */ }

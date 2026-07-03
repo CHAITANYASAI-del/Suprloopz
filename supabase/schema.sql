@@ -213,9 +213,11 @@ create table if not exists public.verifications (
   id_number text not null,
   valid boolean not null default false,
   registered_name text,
+  details jsonb,
   source text default 'surepass',
   created_at timestamptz default now()
 );
+alter table public.verifications add column if not exists details jsonb;
 alter table public.verifications enable row level security;
 drop policy if exists verifications_sel on public.verifications;
 create policy verifications_sel on public.verifications for select

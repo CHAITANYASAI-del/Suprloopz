@@ -122,7 +122,7 @@ export async function POST(req) {
           vendorAdmin.from('legal_documents').select('*').eq('user_id', id).order('doc_type'),
           vendorAdmin.from('addresses').select('*').eq('user_id', id).order('type'),
           vendorAdmin.from('profiles').select('id,email,role,created_at').eq('id', id).maybeSingle(),
-          vendorAdmin.from('verifications').select('doc_type,id_number,registered_name').eq('user_id', id).eq('valid', true),
+          vendorAdmin.from('verifications').select('doc_type,id_number,registered_name,details').eq('user_id', id).eq('valid', true),
         ]);
 
         // Pre-sign every document link (valid 1h) so the admin's "View" is instant
@@ -140,7 +140,10 @@ export async function POST(req) {
         for (const v of verifs.data || []) vmap[`${v.doc_type}:${norm(v.id_number)}`] = v;
         const documentsWithUrls = docRows.map((d) => {
           const m = vmap[`${d.doc_type}:${norm(d.doc_number)}`];
-          return { ...d, signed_url: signed[d.file_path] || null, auto_verified: !!m, verified_name: m?.registered_name || null };
+          return {
+            ...d, signed_url: signed[d.file_path] || null,
+            auto_verified: !!m, verified_name: m?.registered_name || null, registry: m?.details || null,
+          };
         });
 
         return ok({

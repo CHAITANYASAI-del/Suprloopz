@@ -23,6 +23,23 @@ function Row({ label, value }) {
   );
 }
 
+// Flatten a provider's registry payload into readable label/value rows.
+function registryRows(obj, prefix = '') {
+  const rows = [];
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v == null || v === '' || k === 'client_id') continue;
+    const label = (prefix ? `${prefix} · ` : '') + k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    if (Array.isArray(v)) {
+      if (v.length) rows.push({ label, value: `${v.length} item${v.length > 1 ? 's' : ''}` });
+    } else if (typeof v === 'object') {
+      rows.push(...registryRows(v, label));
+    } else {
+      rows.push({ label, value: String(v) });
+    }
+  }
+  return rows.slice(0, 30);
+}
+
 export default function VendorDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -232,6 +249,21 @@ export default function VendorDetailPage() {
                   )}
                 </div>
               </div>
+              {d.registry && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                    View registry details
+                  </summary>
+                  <dl className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                    {registryRows(d.registry).map(({ label, value }) => (
+                      <div key={label} className="flex justify-between gap-3 border-b py-1 text-xs">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="max-w-[60%] truncate text-right font-medium" title={value}>{value}</span>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              )}
               {isAdmin && rejecting === d.id && (
                 <div className="mt-3 flex gap-2">
                   <Input

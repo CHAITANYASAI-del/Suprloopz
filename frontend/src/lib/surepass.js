@@ -57,6 +57,7 @@ export async function verifyGstin({ value }) {
     name: d?.legal_name || d?.business_name || null,
     tradeName: d?.additional_trade_name || null,
     status: d?.gstin_status || null,
+    details: d || null,
     message: d ? '' : friendly(json?.message) || 'GSTIN not found',
   };
 }
@@ -68,17 +69,20 @@ export async function verifyPan({ value }) {
     valid: !!(d && (d.pan_number || d.full_name)),
     name: d?.full_name || d?.registered_name || null,
     status: d?.category || null, // Individual / Company
+    details: d || null,
     message: d ? '' : friendly(json?.message) || 'PAN not found',
   };
 }
 
+// CIN → Company Details (richer than /corporate/cin; returns the full company profile).
 export async function verifyCin({ value }) {
-  const { json } = await call('/corporate/cin', { id_number: value });
+  const { json } = await call('/corporate/company-details', { id_number: value });
   const d = okData(json);
   return {
-    valid: !!(d && (d.company_name || d.cin_number)),
+    valid: !!(d && d.company_name),
     name: d?.company_name || null,
-    status: d?.company_status || null,
+    status: d?.company_type || null,
+    details: d || null,
     message: d ? '' : friendly(json?.message) || 'CIN not found',
   };
 }
